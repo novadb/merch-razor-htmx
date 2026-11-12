@@ -11,7 +11,9 @@ public sealed record NovaMeta(int Id, string? ApiIdentifier);
 /// <summary>
 /// A read of <c>types/{type}/objects</c>. <c>Props</c>: 0 the type's API attributes, 1 every named attribute (needed for
 /// NovaDB's own types). <c>Resolve</c>: reference attributes whose targets arrive in <c>Refs</c>. <c>Take</c>: only the
-/// first objects, one request; without it every object is read, page by page.
+/// first objects, one request; without it every object is read, page by page. <c>Variants</c>: the market member
+/// (<c>Schema.MarketVariant</c>) whose price the read returns; without it a product has no price. <c>Filter</c> and
+/// <c>Sort</c> are Delivery expressions (<c>$score</c> sorts a full-text filter by relevance).
 /// </summary>
 public sealed record ListQuery(string Lang, string? Filter = null, string? Sort = null, int? Take = null, string? Variants = null, int Props = 0, string? Resolve = null);
 
@@ -28,7 +30,6 @@ public sealed class Delivery(IHttpClientFactory http, IMemoryCache cache, IConfi
     static readonly TimeSpan Ttl = TimeSpan.FromSeconds(60);
     /// <summary>The most objects the API returns per request (<c>take</c>).</summary>
     const int PageSize = 1000;
-    static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     /// <summary>DEMO_BRANCH, not NOVA_BRANCH: shells often export NOVA_BRANCH for other work.</summary>
     string Branch => config["DEMO_BRANCH"] is { Length: > 0 } branch ? branch : Schema.Branch;
@@ -61,12 +62,12 @@ public sealed class Delivery(IHttpClientFactory http, IMemoryCache cache, IConfi
 
     sealed record ListPage<TProps>(List<NovaObject<TProps>> Objs, List<NovaObject<JsonElement>>? Refs, bool More);
 
-    /// <summary>Keeps the task, not its result, so concurrent requests for the same URL share one read; a failed read leaves the cache.</summary>
+    /// <summary>Keeps the task, not its result, so concurrent requests for the same URL share one read; a failed or timed-out read leaves the cache.</summary>
     Task<T> GetJsonAsync<T>(string url) => cache.GetOrCreate(url, entry =>
     {
         entry.AbsoluteExpirationRelativeToNow = Ttl;
         var read = ReadJsonAsync<T>(url);
-        read.ContinueWith(_ => cache.Remove(url), TaskContinuationOptions.OnlyOnFaulted);
+        read.ContinueWith(_ => cache.Remove(url), TaskContinuationOptions.NotOnRanToCompletion);
         return read;
     })!;
 
@@ -75,6 +76,6 @@ public sealed class Delivery(IHttpClientFactory http, IMemoryCache cache, IConfi
         using var response = await http.CreateClient(HttpClientName).GetAsync(url);
         // `url` is relative to NOVA_DELIVERY_URL: the host stays out of the log.
         if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Delivery {(int)response.StatusCode} for {url}: {await response.Content.ReadAsStringAsync()}");
-        return await response.Content.ReadFromJsonAsync<T>(Json) ?? throw new InvalidDataException($"Delivery sent no JSON for {url}");
+        return await response.Content.ReadFromJsonAsync<T>() ?? throw new InvalidDataException($"Delivery sent no JSON for {url}");
     }
 }

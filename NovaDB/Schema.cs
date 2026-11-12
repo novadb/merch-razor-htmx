@@ -4,8 +4,9 @@ namespace Merch.NovaDB;
 
 /// <summary>
 /// Every NovaDB name the site depends on, in one place. IDs of branches and object types differ from installation to
-/// installation, API identifiers do not, so the code addresses everything by identifier. The identifiers carry the
-/// prefix <c>merch</c> because they must be unique across branches.
+/// installation, API identifiers do not, so the code addresses everything by identifier. The site's own identifiers
+/// carry the prefix <c>merch</c> because they must be unique across branches; NovaDB's own (<c>image</c>,
+/// <c>typeAttribute</c>, <c>attributeName</c>, the file attributes) do not.
 /// The Delivery API serves an identifier with a lower-case first letter. A numeric ID belongs here too (as a named
 /// constant with a comment) if one is ever unavoidable; today there is none.
 /// </summary>

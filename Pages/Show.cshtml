@@ -13,7 +13,8 @@
     }
     @if (Model.Product?.Image is { } hero)
     {
-        @* The product picture is the largest thing above the fold: the browser fetches it before it has laid out the page. *@
+        @* The product picture is the largest thing above the fold: the browser fetches it before it has laid out the page.
+           The preload only helps if its `imagesizes` equals the `sizes` of the product's <img> below: change both together. *@
         var srcset = Images.SrcSet(hero); // none for SVG: then the file itself
         <link rel="preload" as="image" href="@(srcset is null ? hero : null)" imagesrcset="@srcset" imagesizes="@(srcset is null ? null : "(min-width: 760px) 55vw, 100vw")" />
     }

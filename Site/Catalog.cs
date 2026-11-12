@@ -7,6 +7,9 @@ namespace Merch.Site;
 /// <summary>A product from the PIM in one region: its texts in the region's language, its price in the region's market.</summary>
 /// <param name="Path">The URL without the region, e.g. <c>shop/t-shirts/we-build-value</c>.</param>
 /// <param name="Color">Colour, materials and finishes are PIM objects (<c>merchColor</c>, <c>merchMaterial</c>, <c>merchFinish</c>), held by ID; their names and swatches come with the labels (<see cref="Texts.Value"/>).</param>
+/// <param name="Volume">Cup volume in ml.</param>
+/// <param name="ScreenSize">Laptop sleeve screen size in inches.</param>
+/// <param name="InStock"><c>false</c> is sold out; not set: shown as available, but not counted by the in-stock filter.</param>
 /// <param name="Image">The first picture, <c>/media/{md5}{ext}</c>.</param>
 public sealed record Product(
     int Id, string Name, string Url, string Path, string? Sku, int? Color, int[] Materials, decimal? Volume, int[] Finishes,
@@ -16,11 +19,11 @@ public sealed record Product(
 /// <summary>Products from the PIM: loading, search, facets and sorting.</summary>
 public sealed partial class Catalog(Delivery delivery)
 {
-    /// <summary>Every product matching a Delivery filter; the pictures arrive in the same response (<c>resolve</c>).</summary>
-    public async Task<List<Product>> LoadAsync(Region region, string? filter = null, string? sort = null)
+    /// <summary>Every product matching a Delivery filter, or only the first <paramref name="take"/>; the pictures arrive in the same response (<c>resolve</c>).</summary>
+    public async Task<List<Product>> LoadAsync(Region region, string? filter = null, string? sort = null, int? take = null)
     {
         var (objs, refs) = await delivery.ListAsync<ProductProps>(Schema.Types.Product,
-            new(region.Culture, Filter: filter, Sort: sort, Variants: Schema.MarketVariant(region.Market), Resolve: Schema.Product.Images));
+            new(region.Culture, Filter: filter, Sort: sort, Take: take, Variants: Schema.MarketVariant(region.Market), Resolve: Schema.Product.Images));
         var images = Images.From(refs);
         return [.. objs.Where(o => o.Props is { Name: not null, UrlSegment: not null }).Select(o => ToProduct(o.Meta.Id, o.Props, region, images))];
     }
@@ -70,6 +73,9 @@ public sealed partial class Catalog(Delivery delivery)
     /// </summary>
     public const int RangeBatch = 12;
 
+    /// <summary>The most cards a posted <c>shown</c> can ask for: far above any range, and it keeps the number an <c>int</c>.</summary>
+    const int MaxShown = 100_000;
+
     /// <summary>
     /// The filters and sorting of a posted range form; the form's "reset" button clears them all. Only the "Show more"
     /// button posts <c>shown</c>, so any other change starts again with the first batch.
@@ -78,15 +84,16 @@ public sealed partial class Catalog(Delivery delivery)
     {
         var form = posted.ContainsKey("reset") ? FormCollection.Empty : posted;
         decimal? Num(string key) => decimal.TryParse(form[key], NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : null;
+        // A facet value is an object ID; anything else posted is dropped (the views parse every value). The strings stay the checkboxes' values.
+        string[] Ids(string key) => [.. form[key].Where(v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out _)).OfType<string>()];
         var sort = form["sort"].ToString();
         return new Selection(
             [.. form["group"].Select(v => int.TryParse(v, CultureInfo.InvariantCulture, out var id) ? id : (int?)null).OfType<int>()],
-            [.. form["color"].OfType<string>()],
-            [.. form["material"].OfType<string>()],
+            Ids("color"), Ids("material"),
             form["stock"] == "1",
             Num("min"), Num("max"),
             Sorts.Contains(sort) ? sort : null,
-            (int)Math.Max(1, Math.Ceiling((Num("shown") ?? 0) / RangeBatch)) * RangeBatch);
+            (int)Math.Max(1, Math.Ceiling(Math.Clamp(Num("shown") ?? 0, 0, MaxShown) / RangeBatch)) * RangeBatch);
     }
 
     /// <summary>The facet values of a product: group, colour and materials, as the strings their checkboxes post.</summary>
@@ -157,6 +164,11 @@ public sealed record Selection(int[] Group, string[] Color, string[] Material, b
 }
 
 public sealed record FacetValue(string Value, int Count, bool Selected);
+/// <summary>
+/// The facets of a range. The value counts and <c>InStock</c> are counted over the products the other facets let through;
+/// <c>InStock</c>: how many are in stock. <c>PriceMin</c>/<c>PriceMax</c>: the lowest price rounded down and the highest
+/// rounded up over the whole range, in the region's currency (0 without prices).
+/// </summary>
 public sealed record Facets(List<FacetValue> Group, List<FacetValue> Color, List<FacetValue> Material, int InStock, decimal PriceMin, decimal PriceMax);
 
 /// <summary>A live product range: the filtered, sorted products and the facets counted over all of them.</summary>

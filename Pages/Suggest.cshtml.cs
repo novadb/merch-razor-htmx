@@ -23,6 +23,7 @@ public sealed class SuggestModel(Labels labels, SiteTree tree, Catalog catalog) 
 
     public async Task<IActionResult> OnPostAsync()
     {
+        if (!Request.HasFormContentType) return BadRequest();
         if (Region.Find(Request.Form["lang"]) is not { } region) return NotFound();
         Region = region;
         ListId = Request.Form["list"].ToString();
@@ -30,10 +31,10 @@ public sealed class SuggestModel(Labels labels, SiteTree tree, Catalog catalog) 
         var filter = q.Length < 2 ? null : Catalog.SearchFilter(q, Schema.ProductSearchFields);
         Text = await labels.LoadAsync(region);
         if (filter is null) return Page();
-        var products = catalog.LoadAsync(region, filter, "$score");
+        var products = catalog.LoadAsync(region, filter, "$score", take: 5);
         var pages = tree.SearchAsync(region, q, 3);
         Query = q;
-        Products = (await products).Take(5).ToList();
+        Products = await products;
         Pages = await pages;
         return Page();
     }

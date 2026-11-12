@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Single source of truth for coding agents in this repository; `CLAUDE.md` only imports it. A line stays only if an agent would decide wrongly without it. Why a piece of code is the way it is belongs in a comment at that code, not here.
+Single source of truth for coding agents in this repository; `CLAUDE.md` only imports it. A line stays only if an agent would decide wrongly without it.
 
 ## Project
 
@@ -41,16 +41,17 @@ Before touching `NovaDB/`, `Site/` or `Pages/Shared/_Content.cshtml` read `NOVAD
 - Never weaken, skip or work around a test of the suite to get green.
 - Change only what the task needs; list unrelated findings at the end of your answer (`file:line`).
 - Ask before adding a package or touching `Dockerfile` or deploy configuration.
+- Comments say why the code is this way (a constraint of NovaDB, the framework, browser or contract) or what a name stands for, true for a reader who never saw an earlier version. A declaration other files use gets a doc comment when name and type leave something open (a unit, what a missing value means); a file header or one comment for a group may cover several. Never what the code plainly does or how it changed: that goes in the pull request. No TODO, no commented-out code; test names likewise.
 
 ## Where the code does not say why
 
 - No `@addTagHelper *`: the form tag helper would add an antiforgery field and handler URLs. Only the link and script tag helpers are imported (`_Layout.cshtml`, for the fingerprinted asset names). Antiforgery is off for every page: the forms only read.
 - The site writes no query string and reads none (a foreign one is ignored): filters, sorting and search are POST forms answered with the page itself (`OnPostAsync` = `OnGetAsync`), so a filtered view has no URL of its own. That is intended. htmx sends the same POST and picks `#range` from the whole page (`hx-select`): the pages have no htmx branch, keep it that way.
 - htmx 4: attributes inherit only with `:inherited`, events are `htmx:before:request` style (`hx-on::before:request`), morph swaps (`outerMorph`) are built in. Its documentation is four.htmx.org, not htmx.org (htmx 2). A morph keeps what the visitor ticked: a swap that must reset the form uses `outerHTML`.
-- The HTML must match the other demos' DOM, plus what htmx needs (README, "Deviations"). Razor prints the whitespace of the template: where content flows inline (a price and its badge, a facet option), keep the elements on one line.
-- `wwwroot/site.css`, `NOVADB.md` and the other shared files in `wwwroot/` (`favicon.svg`, `novadb.svg`, `github.svg`, `robots.txt`, the fonts) are the same files in every demo, kept identical from outside this repository: never adapt them. `site.css` is also the CMS editor's stylesheet. The other demos' `site.js` is not used here on purpose.
+- The HTML structure is a contract that every implementation of this site shares, plus what htmx needs (README, "Deviations"). Razor prints the whitespace of the template: where content flows inline (a price and its badge, a facet option), keep the elements on one line.
+- `wwwroot/site.css`, `NOVADB.md` and the other shared files in `wwwroot/` (`favicon.svg`, `novadb.svg`, `github.svg`, `robots.txt`, the fonts) are shared files, kept identical from outside this repository: never adapt them. `site.css` is also the CMS editor's stylesheet. The shared client script `site.js` is not used here on purpose.
 - Page content is made from a closed set of components (classes `merch*`): compose, or follow the structure with CSS, before asking for a new one.
-- The shop is Shopify's own Buy Button and cart, started in `shop.js` from a product's `data-shopify-product`; `shop.js` is the Shopify part of the other demos' `site.js`, unchanged: change it only together with them. Without `SHOPIFY_DOMAIN` and `SHOPIFY_STOREFRONT_TOKEN` there are no buy buttons and no cart, silently: keep both in `.env`.
+- The shop is Shopify's own Buy Button and cart, started in `shop.js` from a product's `data-shopify-product`; `shop.js` is the shared client script's Shopify part, unchanged: change it only together with it. Without `SHOPIFY_DOMAIN` and `SHOPIFY_STOREFRONT_TOKEN` there are no buy buttons and no cart, silently: keep both in `.env`.
 
 ## Git
 

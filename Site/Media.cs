@@ -23,7 +23,6 @@ public sealed partial class Media(Delivery delivery, IConfiguration config)
     public static partial Regex FileName();
 
     sealed record Meta(string ContentType, string ETag);
-    static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     /// <summary><c>MEDIA_CACHE_DIR</c>, by default a folder of this site in the system's temp directory. Delete it to reset the cache.</summary>
     string CacheDir => config["MEDIA_CACHE_DIR"] is { Length: > 0 } dir ? dir : Path.Combine(Path.GetTempPath(), "merch-razor-htmx-media");
@@ -99,7 +98,7 @@ public sealed partial class Media(Delivery delivery, IConfiguration config)
         try
         {
             await using var file = File.OpenRead(Path.Combine(CacheDir, $"{key}.json"));
-            return await JsonSerializer.DeserializeAsync<Meta>(file, Json);
+            return await JsonSerializer.DeserializeAsync<Meta>(file, JsonSerializerOptions.Web);
         }
         catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
         {
@@ -109,7 +108,7 @@ public sealed partial class Media(Delivery delivery, IConfiguration config)
 
     async Task<Meta> WriteMetaAsync(string key, Meta meta)
     {
-        await WriteAtomicAsync($"{key}.json", async temp => await File.WriteAllTextAsync(temp, JsonSerializer.Serialize(meta, Json)));
+        await WriteAtomicAsync($"{key}.json", async temp => await File.WriteAllTextAsync(temp, JsonSerializer.Serialize(meta, JsonSerializerOptions.Web)));
         return meta;
     }
 

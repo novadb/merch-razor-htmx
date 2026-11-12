@@ -26,7 +26,7 @@ public sealed record Region(string Code, string Culture, string HtmlLang, Market
     public Region OtherLanguage => this == De ? Uk : De;
 
     /// <summary>The price as the culture writes it, e.g. <c>24,90 €</c>; amount and currency are joined by a no-break space, as in a browser's <c>Intl.NumberFormat</c>, so they never wrap apart.</summary>
-    public string FormatPrice(decimal? value) => value?.ToString("C", CultureInfo.GetCultureInfo(PriceCulture)).Replace(' ', ' ') ?? "";
+    public string FormatPrice(decimal? value) => value?.ToString("C", CultureInfo.GetCultureInfo(PriceCulture)).Replace(' ', '\u00A0') ?? "";
 
     /// <summary>The same content in every region: <paramref name="own"/> is the path (without region) in this region's content language, <paramref name="other"/> in the other one.</summary>
     public IReadOnlyDictionary<Region, string> Alternates(string? own, string? other)

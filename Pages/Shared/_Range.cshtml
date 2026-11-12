@@ -33,6 +33,12 @@
     }
 }
 @functions {
+    // htmx 4 on the section below: `:inherited` passes an attribute on to the elements inside (otherwise it applies to
+    // its own element only), `outerMorph` swaps by morphing (focus, scroll and what is ticked stay), and
+    // `hx-on::before:request` is the event `htmx:before:request`. `this.scrolled` carries the scroll position from the
+    // start of the swap to its end, where ShowStart compares it with the position afterwards.
+    // The form's trigger `from:#range` also catches the sort <select>, which stands outside the form (`form="facets"`)
+    // but inside the range; number inputs are left out, so a price applies on Enter or "Apply", not per keystroke.
     // The scroll position stays. Only when it cannot (the page got shorter than it) or shows no result any more (the
     // range ends above the window) the range is shown from its start, below the sticky header (its scroll-margin-top).
     const string ShowStart = "if (Math.abs(scrollY - this.scrolled) > 1 || this.lastElementChild.getBoundingClientRect().bottom < parseFloat(getComputedStyle(this).scrollMarginTop)) this.scrollIntoView({ behavior: 'instant' })";

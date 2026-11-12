@@ -5,7 +5,7 @@
 @addTagHelper Microsoft.AspNetCore.Mvc.TagHelpers.LinkTagHelper, Microsoft.AspNetCore.Mvc.TagHelpers
 @addTagHelper Microsoft.AspNetCore.Mvc.TagHelpers.ScriptTagHelper, Microsoft.AspNetCore.Mvc.TagHelpers
 @{
-    // This demo's repository on GitHub (github.com/novadb/<repo>), linked from the corner of every page.
+    // This demo's repository on GitHub (github.com/novadb/<repo>), linked from the footer of every page.
     const string repo = "merch-razor-htmx";
     var region = Model.Region;
     var text = Model.Text;
@@ -27,7 +27,7 @@
 </head>
 <body data-lang="@region.Code" data-shop="@(string.IsNullOrEmpty(shopDomain) || string.IsNullOrEmpty(shopToken) ? null : "")" data-text="@(text is null ? null : System.Text.Json.JsonSerializer.Serialize(text.ForClient()))">
     <a class="skip" href="#main">@(text?["skip"] ?? "Skip to content")</a>
-    @if (text is not null && Model.Site is { } site)
+    @if (text is not null && Model.Map is { } site)
     {
         <header class="site-header">
             <div class="site-header__inner">

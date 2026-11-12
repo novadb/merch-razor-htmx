@@ -17,6 +17,9 @@
     const string ContentSizes = "(min-width: 760px) 50vw, 100vw";
     const string ChapterSizes = "(min-width: 1280px) 1024px, (min-width: 760px) 78vw, 100vw";
 
+    // Renders by type (group, text, image, object), element and class; `definition` is not read. The set of classes
+    // (`merch*`, `imageWithCaption`, …) is closed in the CMS and styled by site.css: only the chapter and the picture's
+    // figure are told apart here, for `sizes`.
     async Task Render(VNode node, string sizes = ContentSizes)
     {
         var tag = Tag(node);

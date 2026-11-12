@@ -50,6 +50,8 @@ Deviations): run it from its checkout with `BASE_URL=http://localhost:4012 npx p
 | `Pages/Show.cshtml` | `/{region}/…`: a page (content + live range) or a product |
 | `Pages/Search.cshtml`, `Pages/Error.cshtml` | search page; 404 and error page |
 | `Pages/Suggest.cshtml` | `POST /api/suggest`: the typeahead's list as HTML, without layout |
+| `Pages/RegionPageModel.cs` | base of every page: the region, its texts, the page tree and the posted form |
+| `Pages/ContentContext.cs` | what a document is rendered with: the IDs it refers to (objects, links, images) and the link rewriting |
 | `Pages/Shared/_Layout.cshtml` | document shell, header, region switch, footer |
 | `Pages/Shared/_Content.cshtml` | Visual Document renderer and page teaser |
 | `Pages/Shared/_Range.cshtml` | the live range with its facets, and its htmx attributes |

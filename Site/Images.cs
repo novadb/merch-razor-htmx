@@ -6,14 +6,12 @@ namespace Merch.Site;
 /// <summary>Pictures by file object ID → the unchangeable URLs of the media proxy (<see cref="Media"/>).</summary>
 public sealed class Images(Delivery delivery)
 {
-    static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-
     /// <summary>
     /// Picture URLs (<c>/media/{md5}{extension}</c>) by file object ID, from objects the API delivered (the <c>refs</c> of
     /// a read with <c>resolve</c>): a content object only holds the file object's ID, the hash that names the file is on
     /// that object. An image without hash or extension has no file and is left out.
     /// </summary>
-    public static Dictionary<int, string> From(IEnumerable<NovaObject<JsonElement>> objs) => From(objs.Select(o => new NovaObject<ImageProps>(o.Meta, o.Props.Deserialize<ImageProps>(Json)!)));
+    public static Dictionary<int, string> From(IEnumerable<NovaObject<JsonElement>> objs) => From(objs.Select(o => new NovaObject<ImageProps>(o.Meta, o.Props.Deserialize<ImageProps>(JsonSerializerOptions.Web)!)));
 
     static Dictionary<int, string> From(IEnumerable<NovaObject<ImageProps>> objs) => objs
         .Where(o => o.Props is { Md5.Length: > 0, Extension.Length: > 0 })
@@ -30,7 +28,7 @@ public sealed class Images(Delivery delivery)
     static string? Scalable(string src) =>
         src.StartsWith("/media/") && src.LastIndexOf('/') == "/media/".Length - 1 && !src.EndsWith(".svg") ? src["/media/".Length..] : null;
 
-    /// <summary><c>srcset</c> of a picture URL: all its scaled variants.</summary>
+    /// <summary><c>srcset</c> of a picture URL: all its scaled variants; null for SVG and for a URL that is not a media file.</summary>
     public static string? SrcSet(string src) =>
         Scalable(src) is { } name ? string.Join(", ", Media.Widths.Select(w => $"/media/{w}/{name} {w}w")) : null;
 
