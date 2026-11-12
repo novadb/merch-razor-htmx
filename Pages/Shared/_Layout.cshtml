@@ -71,14 +71,14 @@
         </header>
     }
     <main id="main">@RenderBody()</main>
-    @if (text is not null)
-    {
-        <footer class="site-footer">
+    <footer class="site-footer">
+        @if (text is not null)
+        {
             <p>@text.Html("poweredBy")</p>
-        </footer>
-    }
-    <aside class="source">
-        <a class="source__repo" href="https://github.com/novadb/@repo">@repo</a>
-    </aside>
+        }
+        <a class="site-footer__repo" href="https://github.com/novadb/@repo">@repo</a>
+    </footer>
+    @* The NovaDB logo in the corner: decoration only, the footer's line names NovaDB in words. *@
+    <aside class="source" aria-hidden="true"></aside>
 </body>
 </html>

@@ -12,20 +12,26 @@
         return tag;
     }
 
-    async Task Render(VNode node)
+    // `sizes` of a content picture: half a page beside text; the chapter's text column when it stands straight in a
+    // chapter, where site.css shows it wide. A chapter hands its own to its children, the picture's figure on to the picture.
+    const string ContentSizes = "(min-width: 760px) 50vw, 100vw";
+    const string ChapterSizes = "(min-width: 1280px) 1024px, (min-width: 760px) 78vw, 100vw";
+
+    async Task Render(VNode node, string sizes = ContentSizes)
     {
         var tag = Tag(node);
         switch (node.Type)
         {
             case "group":
                 @tag.RenderStartTag()
-                foreach (var child in node.Children ?? []) { await Render(child); }
+                var childSizes = node.Class switch { "merchChapter" => ChapterSizes, "imageWithCaption" => sizes, _ => ContentSizes };
+                foreach (var child in node.Children ?? []) { await Render(child, childSizes); }
                 @tag.RenderEndTag()
                 break;
             case "image":
                 if (node.ObjectId is { } imageId && ctx.Images.GetValueOrDefault(imageId) is { } src)
                 {
-                    <img class="@node.Class" src="@src" srcset="@Images.SrcSet(src)" sizes="(min-width: 760px) 50vw, 100vw" alt="" loading="lazy" />
+                    <img class="@node.Class" src="@src" srcset="@Images.SrcSet(src)" sizes="@sizes" alt="" loading="lazy" />
                 }
                 break;
             case "object":
