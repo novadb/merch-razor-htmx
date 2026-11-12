@@ -1,0 +1,6 @@
+bin/
+obj/
+out/
+.env
+test-results/
+playwright-report/

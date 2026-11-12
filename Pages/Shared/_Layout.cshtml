@@ -1,0 +1,84 @@
+@* Document shell, header and footer. No client framework: htmx (attributes hx-* in the HTML) and shop.js (the Shopify cart). *@
+@model RegionPageModel
+@inject IConfiguration Config
+@* Only these two tag helpers, so <form> stays as written: with MapStaticAssets they print the file's fingerprinted name (no query string). *@
+@addTagHelper Microsoft.AspNetCore.Mvc.TagHelpers.LinkTagHelper, Microsoft.AspNetCore.Mvc.TagHelpers
+@addTagHelper Microsoft.AspNetCore.Mvc.TagHelpers.ScriptTagHelper, Microsoft.AspNetCore.Mvc.TagHelpers
+@{
+    // This demo's repository on GitHub (github.com/novadb/<repo>), linked from the corner of every page.
+    const string repo = "merch-razor-htmx";
+    var region = Model.Region;
+    var text = Model.Text;
+    var shopDomain = Config["SHOPIFY_DOMAIN"];
+    var shopToken = Config["SHOPIFY_STOREFRONT_TOKEN"];
+}
+<!DOCTYPE html>
+<html lang="@region.HtmlLang">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    @if (!string.IsNullOrEmpty(shopDomain)) { <meta name="shopify-domain" content="@shopDomain" /> }
+    @if (!string.IsNullOrEmpty(shopToken)) { <meta name="shopify-token" content="@shopToken" /> }
+    @await RenderSectionAsync("Head", required: false)
+    <link rel="stylesheet" href="~/site.css" />
+    <script src="~/htmx.min.js" defer></script>
+    <script src="~/shop.js" type="module"></script>
+</head>
+<body data-lang="@region.Code" data-shop="@(string.IsNullOrEmpty(shopDomain) || string.IsNullOrEmpty(shopToken) ? null : "")" data-text="@(text is null ? null : System.Text.Json.JsonSerializer.Serialize(text.ForClient()))">
+    <a class="skip" href="#main">@(text?["skip"] ?? "Skip to content")</a>
+    @if (text is not null && Model.Site is { } site)
+    {
+        <header class="site-header">
+            <div class="site-header__inner">
+                <a class="logo" href="@site.Home.Url">@site.Home.Title</a>
+                <nav class="site-nav" aria-label="@text["mainNav"]">
+                    <ul>
+                        @foreach (var item in site.Home.Children)
+                        {
+                            <li>
+                                <a href="@item.Url">@item.NavTitle</a>
+                                @if (item.Children.Count > 0)
+                                {
+                                    <ul class="site-nav__sub">
+                                        @foreach (var child in item.Children)
+                                        {
+                                            <li><a href="@child.Url">@child.NavTitle</a></li>
+                                        }
+                                    </ul>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </nav>
+                @await Html.PartialAsync("_SearchBox", (region, text, "suggest-1", false, (string?)null))
+                <div class="site-header__tools">
+                    <nav class="regions" aria-label="@text["region"]">
+                        @foreach (var r in Region.All)
+                        {
+                            if (r == region)
+                            {
+                                <span class="regions__item" aria-current="true" title="@r.Title">@r.Short</span>
+                            }
+                            else
+                            {
+                                <a class="regions__item" href="@(Model.Alternates.GetValueOrDefault(r) ?? $"/{r.Code}/")" hreflang="@r.HtmlLang" title="@r.Title">@r.Short</a>
+                            }
+                        }
+                    </nav>
+                </div>
+            </div>
+        </header>
+    }
+    <main id="main">@RenderBody()</main>
+    @if (text is not null)
+    {
+        <footer class="site-footer">
+            <p>@text.Html("poweredBy")</p>
+        </footer>
+    }
+    <aside class="source">
+        <a class="source__repo" href="https://github.com/novadb/@repo">@repo</a>
+    </aside>
+</body>
+</html>

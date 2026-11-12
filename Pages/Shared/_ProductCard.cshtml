@@ -1,0 +1,29 @@
+@* Class names and HTML are the same in every demo (the test suite selects .product-card__*): change them only together. *@
+@* Id is set in the range only: htmx's morph matches cards by ID, so a card that stays keeps its element and its loaded picture. *@
+@* The picture is not lazy: a card that comes back after a filter is a new element, and a lazy picture is not complete until the browser has looked at it, so it would show late. *@
+@model (Product Product, ContentContext Ctx, string? Id)
+@{
+    var (p, ctx, id) = Model;
+    var details = new[]
+    {
+        p.Color is { } color ? ctx.Text.Value(color) : null,
+        p.Volume is { } volume ? $"{volume} ml" : null,
+        p.ScreenSize is { } inches ? $"{inches}″" : null,
+    }
+    .Concat(p.Materials.Select(ctx.Text.Value)).Concat(p.Finishes.Select(ctx.Text.Value))
+    .Append(p.Pieces > 1 ? ctx.Text.PieceCount(p.Pieces.Value) : null)
+    .OfType<string>();
+}
+<article class="product-card" id="@id">
+    <a href="@p.Url" class="product-card__link">
+        <div class="product-card__media">
+            @if (p.Image is { } src)
+            {
+                <img src="@src" srcset="@Images.SrcSet(src)" sizes="(min-width: 700px) 320px, 100vw" alt="@p.Name" width="400" height="400" />
+            }
+        </div>
+        <h3 class="product-card__name">@p.Name</h3>
+        <p class="product-card__meta">@string.Join(" · ", details)</p>
+        <p class="product-card__price">@ctx.Region.FormatPrice(p.Price)@if (p.InStock == false) {<span class="badge badge--muted">@ctx.Text["soldOut"]</span>}</p>
+    </a>
+</article>

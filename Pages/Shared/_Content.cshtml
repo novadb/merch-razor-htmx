@@ -1,0 +1,67 @@
+@* Renders a Visual Document (the page content) and the teasers it embeds; AfterFirst (the live range) goes right after its first component, the hero. *@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model (VNode? Node, ContentContext Ctx, IHtmlContent? AfterFirst)
+@{
+    var (root, ctx, afterFirst) = Model;
+
+    // The element a node names, with its class: the CMS decides both (`div`, `section`, `h2`, …).
+    TagBuilder Tag(VNode node)
+    {
+        var tag = new TagBuilder(string.IsNullOrEmpty(node.Element) ? "div" : node.Element);
+        if (node.Class is not null) tag.Attributes["class"] = node.Class;
+        return tag;
+    }
+
+    async Task Render(VNode node)
+    {
+        var tag = Tag(node);
+        switch (node.Type)
+        {
+            case "group":
+                @tag.RenderStartTag()
+                foreach (var child in node.Children ?? []) { await Render(child); }
+                @tag.RenderEndTag()
+                break;
+            case "image":
+                if (node.ObjectId is { } imageId && ctx.Images.GetValueOrDefault(imageId) is { } src)
+                {
+                    <img class="@node.Class" src="@src" srcset="@Images.SrcSet(src)" sizes="(min-width: 760px) 50vw, 100vw" alt="" loading="lazy" />
+                }
+                break;
+            case "object":
+                // Like the CMS, which wraps what an object component renders in the component's own element: the
+                // editor's stylesheet (built from site.css) then matches the same DOM as the site.
+                if (node.ObjectId is { } id && ctx.Products.GetValueOrDefault(id) is { } product)
+                {
+                    <text>@tag.RenderStartTag()@await Html.PartialAsync("_ProductCard", (product, ctx, (string?)null))@tag.RenderEndTag()</text>
+                }
+                else if (node.ObjectId is { } targetId && ctx.Targets.GetValueOrDefault(targetId) is { } target)
+                {
+                    <text>@tag.RenderStartTag()</text><a class="page-teaser" href="@target.Url">@if (target.Image is { } teaser) {<img src="@teaser" srcset="@Images.SrcSet(teaser)" sizes="(min-width: 760px) 33vw, 100vw" alt="" loading="lazy" />}<span class="page-teaser__title">@target.Title</span></a>@tag.RenderEndTag()
+                }
+                break;
+            default:
+                tag.InnerHtml.SetHtmlContent(ctx.RewriteLinks(node.Content ?? ""));
+                @tag
+                break;
+        }
+    }
+}
+@if (root is null)
+{
+    @afterFirst
+}
+else
+{
+    // The root node (`visualComponentRoot`) comes from the CMS as `<div class="main">`: the `.main` of site.css.
+    var tag = Tag(root);
+    var children = root.Children ?? [];
+    @tag.RenderStartTag()
+    for (var i = 0; i < children.Count; i++)
+    {
+        await Render(children[i]);
+        if (i == 0) { @afterFirst }
+    }
+    if (children.Count == 0) { @afterFirst }
+    @tag.RenderEndTag()
+}

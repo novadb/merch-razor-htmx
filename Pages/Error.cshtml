@@ -1,0 +1,24 @@
+@page "/error/{code:int?}"
+@model ErrorModel
+@{
+    var text = Model.Text;
+    var notFound = Model.IsNotFound && text is not null;
+}
+@section Head {
+    @if (text is not null)
+    {
+        <title>@text["siteName"]</title>
+    }
+}
+<section class="merchHero not-found">
+    <h1 class="merchDisplay">@(notFound ? text!["notFound"] : "Error")</h1>
+    @if (notFound)
+    {
+        <p class="merchLead">@text!.Html("notFoundText")</p>
+    }
+    else
+    {
+        <p class="merchLead">Something went wrong while loading this page.</p>
+    }
+    <p class="merchCta"><a href="@(Model.Site?.Home.Url ?? "/")">@(text?["home"] ?? "Home")</a></p>
+</section>

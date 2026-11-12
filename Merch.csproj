@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Merch</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Prices are formatted with the culture of the region (ICU): the full globalization data is needed. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Scales pictures to WebP (/media/{width}/…). The Linux build without system dependencies runs in the slim container. -->
+    <PackageReference Include="SkiaSharp" Version="4.156.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.156.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Tooling of the repository and the output of scripts/refresh-container.py, not part of the site. -->
+    <Compile Remove="scripts/**;out/**" />
+    <Content Remove="scripts/**;out/**" />
+    <None Remove="scripts/**;out/**" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,26 @@
+@page "/{region}/search"
+@model SearchModel
+@{
+    var text = Model.Text!;
+    var ctx = new ContentContext(Model.Region, text);
+}
+@section Head {
+    @* No canonical or hreflang: internal search results are not meant to be indexed. *@
+    <title>@text["search"] · @text["siteName"]</title>
+}
+<section class="merchHero merchHero--compact">
+    <p class="merchKicker">@text["search"]</p>
+    <h1 class="merchDisplay">@text.SearchTitle(Model.Query)</h1>
+    @await Html.PartialAsync("_SearchBox", (Model.Region, text, "suggest-2", true, (string?)Model.Query))
+    @if (Model.Pages.Count > 0)
+    {
+        <nav class="search-pages" aria-label="@text["pagesFound"]">
+            <span>@text["pagesFound"]:</span>
+            @foreach (var p in Model.Pages)
+            {
+                <a href="@p.Url">@p.Title</a>
+            }
+        </nav>
+    }
+</section>
+@await Html.PartialAsync("_Range", (Model.Range, ctx, (IReadOnlyDictionary<int, string>)Model.GroupNames, (string?)Model.Query))

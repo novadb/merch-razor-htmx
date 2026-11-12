@@ -1,0 +1,81 @@
+@page "/{region}/{**path}"
+@model ShowModel
+@{
+    var text = Model.Text!;
+    var ctx = Model.Ctx;
+}
+@section Head {
+    <title>@Model.Title · @text["siteName"]</title>
+    <link rel="canonical" href="@Model.Seo.Canonical" />
+    @foreach (var (hreflang, href) in Model.Seo.Alternates)
+    {
+        <link rel="alternate" hreflang="@hreflang" href="@href" />
+    }
+    @if (Model.Product?.Image is { } hero)
+    {
+        @* The product picture is the largest thing above the fold: the browser fetches it before it has laid out the page. *@
+        var srcset = Images.SrcSet(hero); // none for SVG: then the file itself
+        <link rel="preload" as="image" href="@(srcset is null ? hero : null)" imagesrcset="@srcset" imagesizes="@(srcset is null ? null : "(min-width: 760px) 55vw, 100vw")" />
+    }
+}
+@await Html.PartialAsync("_Crumbs", ((IReadOnlyList<Target>)Model.Crumbs, text["breadcrumb"]))
+@if (Model.Product is { } p)
+{
+    var specs = new (string Name, string Value)[]
+    {
+        (text["sku"], p.Sku ?? ""),
+        (text["colour"], p.Color is { } color ? text.Value(color) : ""),
+        (text["material"], string.Join(", ", p.Materials.Select(text.Value))),
+        (text["volume"], p.Volume is { } volume ? $"{volume} ml" : ""),
+        (text["screenSize"], p.ScreenSize is { } inches ? $"{inches}″" : ""),
+        (text["finish"], string.Join(", ", p.Finishes.Select(text.Value))),
+        (text["pieces"], p.Pieces is { } pieces ? text.PieceCount(pieces) : ""),
+    };
+    <article class="pdp">
+        <div class="pdp__media">
+            @if (p.Image is { } src)
+            {
+                <img src="@src" srcset="@Images.SrcSet(src)" sizes="(min-width: 760px) 55vw, 100vw" alt="@p.Name" width="400" height="400" />
+            }
+        </div>
+        <div class="pdp__info">
+            @if (Model.GroupName is { } groupName)
+            {
+                <p class="merchKicker">@groupName</p>
+            }
+            <h1 class="pdp__name">@p.Name</h1>
+            <p class="pdp__price">@Model.Region.FormatPrice(p.Price)<span class="@(p.InStock == false ? "badge badge--muted" : "badge")">@(p.InStock == false ? text["soldOut"] : text["available"])</span></p>
+            @if (p.ShopifyId is not null && p.InStock != false)
+            {
+                <div class="pdp__buy" data-shopify-product="@p.ShopifyId"></div>
+            }
+            @if (p.DescriptionHtml is { } description)
+            {
+                <div class="pdp__description">@Html.Raw(description)</div>
+            }
+            <dl class="specs">
+                @foreach (var (name, value) in specs.Where(s => s.Value.Length > 0))
+                {
+                    <div><dt>@name</dt><dd>@value</dd></div>
+                }
+            </dl>
+        </div>
+    </article>
+    @if (Model.Similar.Count > 0)
+    {
+        <section class="merchBand">
+            <h2 class="headline">@text["similar"]</h2>
+            <div class="grid">
+                @foreach (var s in Model.Similar)
+                {
+                    @await Html.PartialAsync("_ProductCard", (s, ctx, (string?)null))
+                }
+            </div>
+        </section>
+    }
+}
+else
+{
+    var range = Model.Range is { } r ? await Html.PartialAsync("_Range", (r, ctx, (IReadOnlyDictionary<int, string>)Model.GroupNames, (string?)null)) : null;
+    @await Html.PartialAsync("_Content", (Model.Document, ctx, range))
+}
