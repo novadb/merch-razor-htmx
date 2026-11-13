@@ -9,7 +9,7 @@ public sealed record Target(string Url, string Title, string? Image);
 
 /// <summary>
 /// What the partials render with. <c>Products</c>: the products a document embeds; <c>Targets</c>: every page and
-/// product a link or teaser can point at; <c>Images</c>: the picture URL (<c>/media/{md5}{ext}</c>) of each image object
+/// product a link or teaser can point at; <c>Images</c>: the picture URL (<c>/media/{md5}/original{ext}</c>) of each image object
 /// the document embeds. All by object ID.
 /// </summary>
 public sealed partial record ContentContext(Region Region, Texts Text, IReadOnlyDictionary<int, Product> Products, IReadOnlyDictionary<int, Target> Targets, IReadOnlyDictionary<int, string> Images)

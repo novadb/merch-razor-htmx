@@ -10,7 +10,7 @@ namespace Merch.Site;
 /// <param name="Volume">Cup volume in ml.</param>
 /// <param name="ScreenSize">Laptop sleeve screen size in inches.</param>
 /// <param name="InStock"><c>false</c> is sold out; not set: shown as available, but not counted by the in-stock filter.</param>
-/// <param name="Image">The first picture, <c>/media/{md5}{ext}</c>.</param>
+/// <param name="Image">The first picture, <c>/media/{md5}/original{ext}</c>.</param>
 public sealed record Product(
     int Id, string Name, string Url, string Path, string? Sku, int? Color, int[] Materials, decimal? Volume, int[] Finishes,
     int? Pieces, decimal? ScreenSize, decimal? Price, bool? InStock, string? Image, int? GroupId, string? DescriptionHtml,

@@ -64,15 +64,18 @@ app.MapGet("/", (HttpRequest request) =>
     return Results.Redirect(preferred.StartsWith("de") ? "/de/" : ukTags.IsMatch(preferred) ? "/uk/" : "/us/");
 });
 
-// GET /media/{md5}{ext}: the file `files/{md5}{ext}`, unchangeable under this name.
-app.MapGet("/media/{name}", (string name, HttpContext context, Media media) =>
-    Media.FileName().IsMatch(name) ? media.ServeAsync(context, name) : Task.FromResult(Results.NotFound()));
-
-// GET /media/{width}/{md5}{ext}: the same file scaled to one of the widths as WebP. SVG stays vector: it has no scaled variant.
-app.MapGet("/media/{width}/{name}", (string width, string name, HttpContext context, Media media) =>
+// GET /media/{md5}/original{ext}: the file `files/{md5}{ext}`.
+// GET /media/{md5}/{width}{ext}.webp: the same file scaled to one of the widths as WebP. SVG stays vector: it has no variant.
+// The name keeps the extension because NovaDB serves a file only under it. Neither can change under its name.
+app.MapGet("/media/{md5}/{file}", (string md5, string file, HttpContext context, Media media) =>
 {
-    var w = Media.Widths.FirstOrDefault(w => w.ToString() == width); // not int.Parse: it would also read "0400" as 400
-    return w > 0 && Media.FileName().IsMatch(name) && !name.EndsWith(".svg") ? media.ServeScaledAsync(context, name, w) : Task.FromResult(Results.NotFound());
+    if (Media.OriginalFile().Match(file) is { Success: true } original)
+        return Media.FileName().IsMatch(md5 + original.Groups["ext"].Value) ? media.ServeOriginalAsync(context, md5, original.Groups["ext"].Value) : Task.FromResult(Results.NotFound());
+
+    var variant = Media.VariantFile().Match(file);
+    var width = Media.Widths.FirstOrDefault(w => w.ToString() == variant.Groups["width"].Value); // not int.Parse: it would also read "0400" as 400
+    var ext = variant.Groups["ext"].Value;
+    return variant.Success && width > 0 && ext != ".svg" && Media.FileName().IsMatch(md5 + ext) ? media.ServeScaledAsync(context, md5, ext, width) : Task.FromResult(Results.NotFound());
 });
 
 app.MapRazorPages().WithStaticAssets();

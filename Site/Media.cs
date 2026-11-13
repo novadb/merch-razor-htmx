@@ -11,16 +11,25 @@ namespace Merch.Site;
 /// <summary>
 /// Media proxy with a disk cache. The Delivery login never reaches the browser, so pictures are served from here; but a
 /// picture is fetched from NovaDB only once. The upstream route is content-addressed and cannot change under its name
-/// (<c>files/{md5}{extension}</c>: ETag = MD5), so a cached file is never revalidated.
+/// (<c>files/{md5}{extension}</c>: ETag = MD5), so a cached file is never revalidated. A file's cache key is its URL below <c>/media</c>:
+/// <c>{md5}/original{ext}</c> and, scaled, <c>{md5}/{width}{ext}.webp</c>.
 /// </summary>
 public sealed partial class Media(Delivery delivery, IConfiguration config)
 {
-    /// <summary>Widths of the scaled variants (<c>/media/{width}/{md5}{ext}</c>): a fixed list, so the cache cannot be filled with arbitrary sizes.</summary>
+    /// <summary>Widths of the scaled variants (<c>/media/{md5}/{width}{ext}.webp</c>): a fixed list, so the cache cannot be filled with arbitrary sizes.</summary>
     public static readonly int[] Widths = [400, 800, 1200, 1600];
 
     /// <summary>An image file's name is its content address: the MD5 (GUID form, or 32 hex digits) and the extension.</summary>
     [GeneratedRegex("^([0-9a-f]{32}|[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\\.[a-z0-9]{1,5}$")]
     public static partial Regex FileName();
+
+    /// <summary>The <c>file</c> of <c>/media/{md5}/original{ext}</c>.</summary>
+    [GeneratedRegex(@"^original(?<ext>\.[a-z0-9]{1,5})$")]
+    public static partial Regex OriginalFile();
+
+    /// <summary>The <c>file</c> of <c>/media/{md5}/{width}{ext}.webp</c>; whether the width is a known one is for the caller.</summary>
+    [GeneratedRegex(@"^(?<width>\d+)(?<ext>\.[a-z0-9]{1,5})\.webp$")]
+    public static partial Regex VariantFile();
 
     sealed record Meta(string ContentType, string ETag);
 
@@ -30,13 +39,17 @@ public sealed partial class Media(Delivery delivery, IConfiguration config)
     /// <summary>Files being built, by cache key: concurrent requests for the same picture share one download.</summary>
     readonly ConcurrentDictionary<string, Lazy<Task<Meta?>>> building = new();
 
-    /// <summary>Serves the file <paramref name="name"/> (validated by the caller), fetching it from NovaDB first if it is not cached yet; 404 if NovaDB has no such file.</summary>
-    public Task<IResult> ServeAsync(HttpContext context, string name) =>
-        RespondAsync(context, $"file-{name}", () => DownloadAsync(name));
+    /// <summary>Serves <c>/media/{md5}/original{ext}</c>, fetching <c>files/{md5}{ext}</c> first if it is not cached yet; 404 if NovaDB has no such file. The caller has validated both parts as a file name (<see cref="FileName"/>), which makes the cache key safe.</summary>
+    public Task<IResult> ServeOriginalAsync(HttpContext context, string md5, string ext) =>
+        RespondAsync(context, OriginalKey(md5, ext), () => DownloadAsync(md5, ext));
 
-    /// <summary>Serves the file <paramref name="name"/> scaled to one of <see cref="Widths"/>; the caller has validated both.</summary>
-    public Task<IResult> ServeScaledAsync(HttpContext context, string name, int width) =>
-        RespondAsync(context, $"w{width}-{name}", () => ScaleAsync(name, width));
+    /// <summary>Serves <c>/media/{md5}/{width}{ext}.webp</c>, the file scaled to one of <see cref="Widths"/>; the caller has validated all three.</summary>
+    public Task<IResult> ServeScaledAsync(HttpContext context, string md5, string ext, int width) =>
+        RespondAsync(context, VariantKey(md5, ext, width), () => ScaleAsync(md5, ext, width));
+
+    static string OriginalKey(string md5, string ext) => $"{md5}/original{ext}";
+
+    static string VariantKey(string md5, string ext, int width) => $"{md5}/{width}{ext}.webp";
 
     async Task<IResult> RespondAsync(HttpContext context, string key, Func<Task<Meta?>> build)
     {
@@ -55,17 +68,17 @@ public sealed partial class Media(Delivery delivery, IConfiguration config)
         finally { building.TryRemove(KeyValuePair.Create(key, pending)); }
     }
 
-    /// <summary>Downloads <c>files/{name}</c> into the cache. The meta file is written last: where it exists, the bytes do.</summary>
-    async Task<Meta?> DownloadAsync(string name)
+    /// <summary>Downloads <c>files/{md5}{ext}</c> into the cache. The meta file is written last: where it exists, the bytes do.</summary>
+    async Task<Meta?> DownloadAsync(string md5, string ext)
     {
-        using var upstream = await delivery.GetFileAsync(name);
+        using var upstream = await delivery.GetFileAsync($"{md5}{ext}");
         if (upstream.StatusCode == HttpStatusCode.NotFound) return null;
         var etag = upstream.Headers.ETag?.ToString();
         var contentType = upstream.Content.Headers.ContentType?.ToString();
         if (!upstream.IsSuccessStatusCode || etag is null || contentType is null)
-            throw new HttpRequestException($"Delivery {(int)upstream.StatusCode} for files/{name} (ETag {etag}, Content-Type {contentType})");
+            throw new HttpRequestException($"Delivery {(int)upstream.StatusCode} for files/{md5}{ext} (ETag {etag}, Content-Type {contentType})");
 
-        var key = $"file-{name}";
+        var key = OriginalKey(md5, ext);
         await WriteAtomicAsync(key, async temp =>
         {
             await using var file = File.Create(temp);
@@ -74,14 +87,15 @@ public sealed partial class Media(Delivery delivery, IConfiguration config)
         return await WriteMetaAsync(key, new Meta(contentType, etag));
     }
 
-    /// <summary>Scales the cached original to <paramref name="width"/> as WebP (quality 80), without enlarging. Meta is written last, as in <see cref="DownloadAsync"/>.</summary>
-    async Task<Meta?> ScaleAsync(string name, int width)
+    /// <summary>Scales the cached original (fetched first if missing) to <paramref name="width"/> as WebP (quality 80), without enlarging. Meta is written last, as in <see cref="DownloadAsync"/>.</summary>
+    async Task<Meta?> ScaleAsync(string md5, string ext, int width)
     {
-        if (await EnsureAsync($"file-{name}", () => DownloadAsync(name)) is not { } original) return null;
-        var key = $"w{width}-{name}";
+        var originalKey = OriginalKey(md5, ext);
+        if (await EnsureAsync(originalKey, () => DownloadAsync(md5, ext)) is not { } original) return null;
+        var key = VariantKey(md5, ext, width);
         await WriteAtomicAsync(key, temp =>
         {
-            using var source = SKBitmap.Decode(Path.Combine(CacheDir, $"file-{name}")) ?? throw new InvalidDataException($"Cannot decode {name}");
+            using var source = SKBitmap.Decode(Path.Combine(CacheDir, originalKey)) ?? throw new InvalidDataException($"Cannot decode {originalKey}");
             using var scaled = source.Width > width
                 ? source.Resize(new SKImageInfo(width, (int)Math.Round(source.Height * (double)width / source.Width)), new SKSamplingOptions(SKCubicResampler.CatmullRom))
                 : source.Copy();
@@ -112,11 +126,11 @@ public sealed partial class Media(Delivery delivery, IConfiguration config)
         return meta;
     }
 
-    /// <summary>Writes the cache file <paramref name="name"/> through a temporary file and a rename, so no reader ever sees half of it.</summary>
+    /// <summary>Writes the cache file <paramref name="name"/> (a path below the cache folder, whose subfolder is created) through a temporary file and a rename, so no reader ever sees half of it.</summary>
     async Task WriteAtomicAsync(string name, Func<string, Task> write)
     {
-        Directory.CreateDirectory(CacheDir);
         var file = Path.Combine(CacheDir, name);
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
         var temp = $"{file}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
         try
         {

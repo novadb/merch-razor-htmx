@@ -75,5 +75,5 @@ Deviations): run it from its checkout with `BASE_URL=http://localhost:4012 npx p
 - `POST /api/suggest` answers HTML (the typeahead's list, with the extra field `list` as its ID), never JSON: the
   browser gets nothing but HTML from this site. The suite's one test that reads the JSON answer, tagged `@suggest-json`,
   is left out of this demo's pull request pipeline (`--grep-invert`); the `/media` routes are checked as in every demo.
-- Scaled pictures (`/media/{width}/…`) are made with SkiaSharp: their bytes differ slightly from other demos' (resampling at
+- Scaled pictures (`/media/{md5}/{width}{ext}.webp`) are made with SkiaSharp: their bytes differ slightly from other demos' (resampling at
   high-contrast edges), and an animated GIF or WebP is scaled to its first frame.
