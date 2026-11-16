@@ -37,6 +37,19 @@ public sealed partial record ContentContext(Region Region, Texts Text, IReadOnly
         return into;
     }
 
+    /// <summary>
+    /// The first image node in document order that renders (its object has a known picture). Compare it by reference:
+    /// a record's <c>==</c> compares values, so the same image embedded twice would be equal.
+    /// </summary>
+    public VNode? FirstImage(VNode? node)
+    {
+        if (node is null) return null;
+        if (node is { Type: "image", ObjectId: { } id } && Images.ContainsKey(id)) return node;
+        foreach (var child in node.Children ?? [])
+            if (FirstImage(child) is { } found) return found;
+        return null;
+    }
+
     /// <summary>Turns CMS links (<c>object?branch=…&amp;objectId=N</c>) into site URLs and drops editor-only attributes.</summary>
     public string RewriteLinks(string html) => EditorAttribute().Replace(
         CmsLink().Replace(Catalog.CleanHtml(html), m => $"href=\"{Targets.GetValueOrDefault(int.Parse(m.Groups[1].Value))?.Url ?? "#"}\""), "");

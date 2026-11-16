@@ -3,6 +3,7 @@
 @model (VNode? Node, ContentContext Ctx, IHtmlContent? AfterFirst)
 @{
     var (root, ctx, afterFirst) = Model;
+    var firstImage = ctx.FirstImage(root);
 
     // The element a node names, with its class: the CMS decides both (`div`, `section`, `h2`, …).
     TagBuilder Tag(VNode node)
@@ -34,7 +35,9 @@
             case "image":
                 if (node.ObjectId is { } imageId && ctx.Images.GetValueOrDefault(imageId) is { } src)
                 {
-                    <img class="@node.Class" src="@src" srcset="@Images.SrcSet(src)" sizes="@sizes" alt="" loading="lazy" />
+                    // The first picture is on screen at once (the hero): lazy loading would delay the largest contentful paint.
+                    var first = ReferenceEquals(node, firstImage);
+                    <img class="@node.Class" src="@src" srcset="@Images.SrcSet(src)" sizes="@sizes" alt="" loading="@(first ? "eager" : "lazy")" fetchpriority="@(first ? "high" : null)" />
                 }
                 break;
             case "object":
