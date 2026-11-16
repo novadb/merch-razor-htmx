@@ -19,7 +19,7 @@ Non-goals: client-side rendering, writes to NovaDB, a database or shared cache, 
 - Run: `dotnet run` (http://localhost:5000). It needs the Delivery login (`NOVA_DELIVERY_URL`, `NOVA_DELIVERY_USER`, `NOVA_DELIVERY_PASSWORD`) in its environment or in `dotnet user-secrets`, and does not start without it.
 - `dotnet build` (warnings are errors), `docker build .`
 - Local container (`localhost:4012`, podman): `uv run scripts/refresh-container.py` after every completed change; `--full` after a change to `Merch.csproj` or `Dockerfile`.
-- Tests: the shared Playwright suite, from its checkout: `BASE_URL=http://localhost:4012 npx playwright test` (Firefox). The tests tagged `@shopify` need the Shopify variables.
+- Tests: the shared Playwright suite, from its checkout: `BASE_URL=http://localhost:4012 npx playwright test`. The tests tagged `@shopify` need the Shopify variables.
 - Done means: build and `docker build` pass and the suite is green against the real Delivery API, but for the tests the README names under "Deviations". "Should work" is not a result; report each gate with its output.
 - The suite asserts structure and data rules, not CMS copy: a missing seed path is CMS data, not a defect of the app.
 - Scripts live in `scripts/`, which `Merch.csproj` excludes from its build. Python through `uv run` with a PEP 723 block. A script that needs this project's classes (`#:project ../Merch.csproj`), or that C# plainly does better, is a C# file-based app: `dotnet run --file scripts/name.cs -- args`, never `dotnet run name.cs` (that runs the project). No quotes in `#:` directives; `#:package` needs a version.
