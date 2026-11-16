@@ -19,7 +19,10 @@ public sealed class ShowModel(Labels labels, SiteTree tree, Catalog catalog, Ima
 
     // A product
     public Product? Product { get; private set; }
+    public List<SetRow> Contents { get; private set; } = [];
     public List<Product> Similar { get; private set; } = [];
+    public List<Product> Accessories { get; private set; } = [];
+    public List<Product> SpareParts { get; private set; } = [];
     public string? GroupName { get; private set; }
 
     public Task<IActionResult> OnGetAsync(string region, string? path) => LoadAsync(region, path);
@@ -41,7 +44,7 @@ public sealed class ShowModel(Labels labels, SiteTree tree, Catalog catalog, Ima
             ? await LoadPageAsync(page, groups)
             : await LoadProductAsync(path, groups);
         if (!found) return NotFound();
-        Seo = Seo.Of(Request, config, Product?.Url ?? page!.Url, Alternates);
+        Seo = Seo.Of(Request, config, Product?.Url ?? page!.Url, Alternates, Product?.Seo);
         return Page();
     }
 
@@ -73,14 +76,20 @@ public sealed class ShowModel(Labels labels, SiteTree tree, Catalog catalog, Ima
     {
         if (path.Length == 0 || await catalog.ByPathAsync(Region, path) is not { } product) return false;
         var similar = catalog.ByIdsAsync(product.Similar, Region);
+        var accessories = catalog.ByIdsAsync(product.Accessories, Region);
+        var spareParts = catalog.ByIdsAsync(product.SpareParts, Region);
+        var contents = catalog.SetContentsAsync(product, Region);
         var other = (await catalog.ByIdsAsync([product.Id], Region.OtherLanguage)).FirstOrDefault(); // its path in the other language, for hreflang
         var category = product.GroupId is { } group ? Map!.CategoryPage(group) : null;
-        Title = product.Name;
+        Title = product.Seo.Title ?? product.Name;
         Alternates = Region.Alternates(product.Path, other?.Path);
         Crumbs = [.. Map!.Breadcrumb(category).Select(ToCrumb), new Target(product.Url, product.Name, null)];
         Ctx = new ContentContext(Region, Text!);
         Product = product;
+        Contents = await contents;
         Similar = await similar;
+        Accessories = await accessories;
+        SpareParts = await spareParts;
         GroupName = product.GroupId is { } id ? groups.GetValueOrDefault(id) : null;
         return true;
     }

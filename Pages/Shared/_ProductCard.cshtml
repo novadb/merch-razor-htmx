@@ -4,12 +4,11 @@
 @model (Product Product, ContentContext Ctx, string? Id)
 @{
     var (p, ctx, id) = Model;
-    var details = new[]
+    var details = p.Colors.Select(ctx.Text.Value).Concat(new[]
     {
-        p.Color is { } color ? ctx.Text.Value(color) : null,
         p.Volume is { } volume ? $"{volume} ml" : null,
         p.ScreenSize is { } inches ? $"{inches}″" : null,
-    }
+    })
     .Concat(p.Materials.Select(ctx.Text.Value)).Concat(p.Finishes.Select(ctx.Text.Value))
     .Append(p.Pieces > 1 ? ctx.Text.PieceCount(p.Pieces.Value) : null)
     .OfType<string>();

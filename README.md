@@ -39,9 +39,10 @@ with the variables from the environment or `.env` (see `.env.example`).
 
 ## Test
 
-The site passes the shared Playwright behaviour suite of the Nova Merchandising demos but for two tests (see
-Deviations): run it from its checkout with `BASE_URL=http://localhost:4012 npx playwright test`. The tests tagged
-`@shopify` (buy button, cart) need the Shopify variables.
+The site passes the shared Playwright behaviour suite of the Nova Merchandising demos (not part of this repository, one
+project per demo), which checks the deviations below as this demo's own variant: run it from its folder with
+`BASE_URL=http://localhost:4012 npx playwright test --project razor-htmx`. The tests tagged `@shopify` (buy button, cart)
+need the Shopify variables.
 
 ## Where things are
 
@@ -52,9 +53,9 @@ Deviations): run it from its checkout with `BASE_URL=http://localhost:4012 npx p
 | `NovaDB/Delivery.cs` | Delivery API client on `HttpClient` (Basic auth set in `Program.cs`): paging, 60 s cache |
 | `Site/Regions.cs`, `Site/Labels.cs` | regions (`de`, `uk`, `us`: content language, market, currency) and the UI texts, read from NovaDB's labels |
 | `Site/SiteTree.cs` | page tree, URLs from `merchPageUrlSegment` + parent page, breadcrumb, category page of a group |
-| `Site/Catalog.cs` | products, full-text filter, facets (counted on the server), sorting |
+| `Site/Catalog.cs` | the product and article types, full-text filter, facets (counted on the server), sorting; reading released products with their articles, claims and set rows |
 | `Site/Images.cs`, `Site/Media.cs` | picture URLs by content address; the `/media` proxy with disk cache and scaled WebP variants (SkiaSharp) |
-| `Site/Seo.cs` | canonical and hreflang URLs |
+| `Site/Seo.cs` | canonical and hreflang URLs, description and robots hint |
 | `Program.cs` | services, middleware, `/` → region by `Accept-Language`, `/media/…` |
 | `Pages/Show.cshtml` | `/{region}/…`: a page (content + live range) or a product |
 | `Pages/Search.cshtml`, `Pages/Error.cshtml` | search page; 404 and error page |
@@ -77,12 +78,14 @@ Deviations): run it from its checkout with `BASE_URL=http://localhost:4012 npx p
 - A card that left the range (filtered out) and comes back is a new element; its picture comes from the browser cache.
   `site.js` keeps every card it has seen for that, which takes more script than this demo wants. The suite's test "a
   facet or sort change replaces the range in place" does not judge it.
+- "Show more" is htmx's own request: after a keyboard click the focus is lost with the replaced button instead of moving
+  to the first new card.
 - The pictures of the cards are not lazy (`loading="lazy"` is missing): a card that comes back after a filter is a new
   element, and a lazy picture counts as loaded only after the browser has looked at it, so it could show late, which the
-  suite checks. A range shows 12 cards at a time, so loading them at once costs little.
+  suite checks (it expects exactly this here). A range shows 12 cards at a time, so loading them at once costs little.
 - Reset replaces the range instead of morphing it: a morph keeps what the visitor ticked.
 - `POST /api/suggest` answers HTML (the typeahead's list, with the extra field `list` as its ID), never JSON: the
-  browser gets nothing but HTML from this site. The suite's one test that reads the JSON answer, tagged `@suggest-json`,
-  is left out of this demo's pull request pipeline (`--grep-invert`); the `/media` routes are checked as in every demo.
+  browser gets nothing but HTML from this site. The suite reads the options of that list where it reads the JSON in the
+  other demos; the `/media` routes are checked as in every demo.
 - Scaled pictures (`/media/{md5}/{width}{ext}.webp`) are made with SkiaSharp: their bytes differ slightly from other demos' (resampling at
   high-contrast edges), and an animated GIF or WebP is scaled to its first frame.

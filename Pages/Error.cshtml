@@ -7,7 +7,7 @@
 @section Head {
     @if (text is not null)
     {
-        <title>@text["siteName"]</title>
+        <title>@(notFound ? $"{text["notFound"]} · {text["siteName"]}" : text["siteName"])</title>
     }
 }
 <section class="merchHero not-found">

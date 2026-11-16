@@ -19,8 +19,8 @@ Non-goals: client-side rendering, writes to NovaDB, a database or shared cache, 
 - Run: `dotnet run` (http://localhost:5000). It needs the Delivery login (`NOVA_DELIVERY_URL`, `NOVA_DELIVERY_USER`, `NOVA_DELIVERY_PASSWORD`) in its environment or in `dotnet user-secrets`, and does not start without it.
 - `dotnet build` (warnings are errors), `docker build .`
 - Local container (`localhost:4012`, podman): `uv run scripts/refresh-container.py` after every completed change; `--full` after a change to `Merch.csproj` or `Dockerfile`.
-- Tests: the shared Playwright suite, from its checkout: `BASE_URL=http://localhost:4012 npx playwright test`. The tests tagged `@shopify` need the Shopify variables.
-- Done means: build and `docker build` pass and the suite is green against the real Delivery API, but for the tests the README names under "Deviations". "Should work" is not a result; report each gate with its output.
+- Tests: the shared Playwright suite (outside this repository, one project per demo), from its folder: `BASE_URL=http://localhost:4012 npx playwright test --project razor-htmx`. The tests tagged `@shopify` need the Shopify variables.
+- Done means: build and `docker build` pass and the suite is green against the real Delivery API (what the README names under "Deviations" the suite checks as this demo's own variant). "Should work" is not a result; report each gate with its output.
 - The suite asserts structure and data rules, not CMS copy: a missing seed path is CMS data, not a defect of the app.
 - Scripts live in `scripts/`, which `Merch.csproj` excludes from its build. Python through `uv run` with a PEP 723 block. A script that needs this project's classes (`#:project ../Merch.csproj`), or that C# plainly does better, is a C# file-based app: `dotnet run --file scripts/name.cs -- args`, never `dotnet run name.cs` (that runs the project). No quotes in `#:` directives; `#:package` needs a version.
 
@@ -29,6 +29,7 @@ Non-goals: client-side rendering, writes to NovaDB, a database or shared cache, 
 Before touching `NovaDB/`, `Site/` or `Pages/Shared/_Content.cshtml` read `NOVADB.md`: the model and the Delivery API's concepts (identifiers, `lang`, `props`, variants, references, Visual Document, files, search). The wire protocol (routes, filter and sort grammar, paging) is in the product documentation it links. `README.md` lists which file does what.
 
 - Read-only, branch `merchDemo`.
+- Only products and articles in the workflow state "released" (`Schema.WorkflowReleased`) are on the site, never an unfinished one. A product is the card, URL and page; SKU, colour, stock and delivery time come from its articles.
 - Every NovaDB name (branch, types, attributes, market variants) is an API identifier and stands only in `NovaDB/Schema.cs`, as a `const` the `props` records use in `[JsonPropertyName]`. An unavoidable numeric ID goes there too, as a named constant.
 - A missing `props` key means unset or untranslated: it is `null`, omit it. Never fall back to another language or to `displayName`.
 - Never print or log `NOVA_DELIVERY_URL/USER/PASSWORD`; the `HttpClient` logs stay at `Warning` (`appsettings.json`) because they name the host. The login stays on the server: pictures go through the `/media` proxy.

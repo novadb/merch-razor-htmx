@@ -7,6 +7,14 @@
 @section Head {
     <title>@Model.Title · @text["siteName"]</title>
     <link rel="canonical" href="@Model.Seo.Canonical" />
+    @if (Model.Seo.Description is { } seoDescription)
+    {
+        <meta name="description" content="@seoDescription" />
+    }
+    @if (Model.Seo.Robots is { } robots)
+    {
+        <meta name="robots" content="@robots" />
+    }
     @foreach (var (hreflang, href) in Model.Seo.Alternates)
     {
         <link rel="alternate" hreflang="@hreflang" href="@href" />
@@ -22,15 +30,21 @@
 @await Html.PartialAsync("_Crumbs", ((IReadOnlyList<Target>)Model.Crumbs, text["breadcrumb"]))
 @if (Model.Product is { } p)
 {
+    var deliveryDays = p.Articles.Where(a => a.Stock > 0).Select(a => a.DeliveryDays).Min();
     var specs = new (string Name, string Value)[]
     {
-        (text["sku"], p.Sku ?? ""),
-        (text["colour"], p.Color is { } color ? text.Value(color) : ""),
+        (text["sku"], string.Join(", ", p.Articles.Select(a => a.Sku).OfType<string>())),
+        (text["colour"], string.Join(", ", p.Colors.Select(text.Value))),
         (text["material"], string.Join(", ", p.Materials.Select(text.Value))),
         (text["volume"], p.Volume is { } volume ? $"{volume} ml" : ""),
         (text["screenSize"], p.ScreenSize is { } inches ? $"{inches}″" : ""),
         (text["finish"], string.Join(", ", p.Finishes.Select(text.Value))),
         (text["pieces"], p.Pieces is { } pieces ? text.PieceCount(pieces) : ""),
+        (text["delivery"], deliveryDays?.ToString() ?? ""),
+    };
+    var bands = new (string Title, List<Product> Products)[]
+    {
+        (text["similar"], Model.Similar), (text["accessories"], Model.Accessories), (text["spareParts"], Model.SpareParts),
     };
     <article class="pdp">
         <div class="pdp__media">
@@ -60,14 +74,34 @@
                     <div><dt>@name</dt><dd>@value</dd></div>
                 }
             </dl>
+            @if (Model.Contents.Count > 0)
+            {
+                <h2 class="pdp__subhead">@text["setContents"]</h2>
+                <ul class="pdp__list">
+                    @foreach (var row in Model.Contents)
+                    {
+                        <li>@row.Quantity × @if (row.Url is { } url) {<a href="@url">@row.Name</a>} else {@row.Name}</li>
+                    }
+                </ul>
+            }
+            @if (p.Claims.Length > 0)
+            {
+                <h2 class="pdp__subhead">@text["claims"]</h2>
+                <ul class="pdp__list">
+                    @foreach (var claim in p.Claims)
+                    {
+                        <li>@claim</li>
+                    }
+                </ul>
+            }
         </div>
     </article>
-    @if (Model.Similar.Count > 0)
+    @foreach (var (title, products) in bands.Where(b => b.Products.Count > 0))
     {
         <section class="merchBand">
-            <h2 class="headline">@text["similar"]</h2>
+            <h2 class="headline">@title</h2>
             <div class="grid">
-                @foreach (var s in Model.Similar)
+                @foreach (var s in products)
                 {
                     @await Html.PartialAsync("_ProductCard", (s, ctx, (string?)null))
                 }

@@ -7,8 +7,8 @@ namespace Merch.NovaDB;
 /// installation, API identifiers do not, so the code addresses everything by identifier. The site's own identifiers
 /// carry the prefix <c>merch</c> because they must be unique across branches; NovaDB's own (<c>image</c>,
 /// <c>typeAttribute</c>, <c>attributeName</c>, the file attributes) do not.
-/// The Delivery API serves an identifier with a lower-case first letter. A numeric ID belongs here too (as a named
-/// constant with a comment) if one is ever unavoidable; today there is none.
+/// The Delivery API serves an identifier with a lower-case first letter. A numeric ID belongs here too, as a named
+/// constant with a comment, where one is unavoidable (<see cref="WorkflowReleased"/>).
 /// </summary>
 public static class Schema
 {
@@ -20,12 +20,17 @@ public static class Schema
     {
         public const string Page = "merchPage";
         public const string Product = "merchProduct";
+        /// <summary>A product's sellable variant (SKU, colour, stock, delivery time).</summary>
+        public const string Article = "merchArticle";
         public const string Group = "merchProductGroup";
         public const string Image = "image";
         public const string Label = "merchLabel";
         public const string Color = "merchColor";
         public const string Material = "merchMaterial";
         public const string Finish = "merchFinish";
+        public const string Claim = "merchClaim";
+        /// <summary>The rows of a set product, an anonymous type: only reachable through <see cref="Schema.Product.SetItems"/>.</summary>
+        public const string SetItem = "merchSetItem";
         /// <summary>NovaDB's own type of attribute definitions: the site prints a product attribute under its name from here.</summary>
         public const string Attribute = "typeAttribute";
     }
@@ -50,26 +55,76 @@ public static class Schema
         public const string Parent = "merchPageParent";
     }
 
-    /// <summary>Attributes of a product. Colour, materials and finishes reference <c>merchColor</c>, <c>merchMaterial</c>, <c>merchFinish</c> objects.</summary>
+    /// <summary>
+    /// Attributes of a product. A product is what the site shows (page, card, price, Shopify ID); its articles carry SKU,
+    /// colour and stock. Materials and finishes reference <c>merchMaterial</c>, <c>merchFinish</c> objects.
+    /// </summary>
     public static class Product
     {
         public const string Name = "merchProductName";
         public const string Description = "merchProductDescription";
-        public const string Sku = "merchProductSku";
-        public const string Group = "merchProductGroupRef";
-        public const string Price = "merchProductPrice";
-        public const string InStock = "merchProductInStock";
+        public const string Number = "merchProductNumber";
+        /// <summary>Reference to the product group (the parent in the group tree).</summary>
+        public const string Group = "merchProductParent";
+        /// <summary>One price per market (<see cref="MarketVariant"/>).</summary>
+        public const string Price = "merchProductSalesPrice";
         public const string Images = "merchProductImages";
-        public const string Similar = "merchProductSimilar";
+        public const string Related = "merchProductRelated";
+        public const string Accessories = "merchProductAccessories";
+        public const string SpareParts = "merchProductSpareParts";
         public const string UrlSegment = "merchProductUrlSegment";
         public const string ShopifyId = "merchProductShopifyId";
-        public const string Color = "merchProductColorRef";
-        public const string Materials = "merchProductMaterialRefs";
-        public const string CupVolume = "merchProductCupVolume";
-        public const string Finish = "merchProductFinishRefs";
-        public const string Pieces = "merchProductPieces";
-        public const string ScreenSize = "merchProductScreenSize";
+        /// <summary>References to <c>merchClaim</c> objects: statements the product may make.</summary>
+        public const string Claims = "merchClaimRefs";
+        /// <summary>References to <c>merchSetItem</c> objects, set only on a set product.</summary>
+        public const string SetItems = "merchProductSetItems";
+        public const string Materials = "merchMaterials";
+        public const string Finishes = "merchFinishes";
+        /// <summary>Volume in cm³ (a cup's, printed as ml), pieces per set, screen size in inches.</summary>
+        public const string Volume = "merchVolume";
+        public const string Pieces = "merchPiecesPerSet";
+        public const string ScreenSize = "merchScreenSize";
+        public const string SeoTitle = "merchSeoTitle";
+        public const string SeoDescription = "merchSeoDescription";
+        public const string SeoNoIndex = "merchSeoNoIndex";
+        public const string SeoNoFollow = "merchSeoNoFollow";
+        /// <summary>Reference to a workflow state (see <see cref="WorkflowReleased"/>).</summary>
+        public const string Workflow = "merchProductWorkflow";
     }
+
+    /// <summary>Attributes of an article, the sellable variant of a product.</summary>
+    public static class Article
+    {
+        /// <summary>The SKU.</summary>
+        public const string Number = "merchArticleNumber";
+        public const string Name = "merchArticleName";
+        public const string Product = "merchArticleParent";
+        /// <summary>Reference to a <c>merchColor</c> object.</summary>
+        public const string Color = "merchArticleColor";
+        /// <summary>Pieces in stock; 0 is sold out.</summary>
+        public const string Stock = "merchArticleStock";
+        public const string DeliveryDays = "merchArticleDeliveryDays";
+        public const string Workflow = "merchArticleWorkflow";
+    }
+
+    public static class Claim
+    {
+        public const string Text = "merchClaimText";
+    }
+
+    public static class SetItem
+    {
+        /// <summary>Reference to the article the row is made of.</summary>
+        public const string Article = "merchSetItemRef";
+        public const string Quantity = "merchSetItemQty";
+    }
+
+    /// <summary>
+    /// The workflow state "released": only products and articles in it are on the site, the rest is still being edited or
+    /// checked. A reference attribute is filtered by the target's object ID, and the state objects have no API identifier.
+    /// The ID is the same in every branch of this installation.
+    /// </summary>
+    public const int WorkflowReleased = 2108321;
 
     /// <summary>
     /// Attributes of an image (a file type: the object IS the file). MD5 and extension give the content address
@@ -100,7 +155,7 @@ public static class Schema
     };
 
     /// <summary>Fields the full-text search looks in.</summary>
-    public static readonly string[] ProductSearchFields = [Product.Name, Product.Sku, Product.Description];
+    public static readonly string[] ProductSearchFields = [Product.Name, Product.Number, Product.Description];
     public static readonly string[] PageSearchFields = [Page.Title, Page.Content];
 }
 
@@ -118,20 +173,39 @@ public sealed record PageProps(
 public sealed record ProductProps(
     [property: JsonPropertyName(Schema.Product.Name)] string? Name,
     [property: JsonPropertyName(Schema.Product.Description)] RichText? Description,
-    [property: JsonPropertyName(Schema.Product.Sku)] string? Sku,
     [property: JsonPropertyName(Schema.Product.Group)] int? Group,
     [property: JsonPropertyName(Schema.Product.Price)] decimal? Price,
-    [property: JsonPropertyName(Schema.Product.InStock)] bool? InStock,
     [property: JsonPropertyName(Schema.Product.Images)] int[]? Images,
-    [property: JsonPropertyName(Schema.Product.Similar)] int[]? Similar,
+    [property: JsonPropertyName(Schema.Product.Related)] int[]? Related,
+    [property: JsonPropertyName(Schema.Product.Accessories)] int[]? Accessories,
+    [property: JsonPropertyName(Schema.Product.SpareParts)] int[]? SpareParts,
     [property: JsonPropertyName(Schema.Product.UrlSegment)] string? UrlSegment,
     [property: JsonPropertyName(Schema.Product.ShopifyId)] string? ShopifyId,
-    [property: JsonPropertyName(Schema.Product.Color)] int? Color,
+    [property: JsonPropertyName(Schema.Product.Claims)] int[]? Claims,
+    [property: JsonPropertyName(Schema.Product.SetItems)] int[]? SetItems,
     [property: JsonPropertyName(Schema.Product.Materials)] int[]? Materials,
-    [property: JsonPropertyName(Schema.Product.CupVolume)] decimal? CupVolume,
-    [property: JsonPropertyName(Schema.Product.Finish)] int[]? Finishes,
+    [property: JsonPropertyName(Schema.Product.Finishes)] int[]? Finishes,
+    [property: JsonPropertyName(Schema.Product.Volume)] decimal? Volume,
     [property: JsonPropertyName(Schema.Product.Pieces)] int? Pieces,
-    [property: JsonPropertyName(Schema.Product.ScreenSize)] decimal? ScreenSize);
+    [property: JsonPropertyName(Schema.Product.ScreenSize)] decimal? ScreenSize,
+    [property: JsonPropertyName(Schema.Product.SeoTitle)] string? SeoTitle,
+    [property: JsonPropertyName(Schema.Product.SeoDescription)] string? SeoDescription,
+    [property: JsonPropertyName(Schema.Product.SeoNoIndex)] bool? SeoNoIndex,
+    [property: JsonPropertyName(Schema.Product.SeoNoFollow)] bool? SeoNoFollow);
+
+public sealed record ArticleProps(
+    [property: JsonPropertyName(Schema.Article.Number)] string? Number,
+    [property: JsonPropertyName(Schema.Article.Name)] string? Name,
+    [property: JsonPropertyName(Schema.Article.Product)] int? Product,
+    [property: JsonPropertyName(Schema.Article.Color)] int? Color,
+    [property: JsonPropertyName(Schema.Article.Stock)] int? Stock,
+    [property: JsonPropertyName(Schema.Article.DeliveryDays)] int? DeliveryDays);
+
+public sealed record ClaimProps([property: JsonPropertyName(Schema.Claim.Text)] string? Text);
+
+public sealed record SetItemProps(
+    [property: JsonPropertyName(Schema.SetItem.Article)] int? Article,
+    [property: JsonPropertyName(Schema.SetItem.Quantity)] int? Quantity);
 
 public sealed record LabelProps(
     [property: JsonPropertyName(Schema.Label.Key)] string? Key,
