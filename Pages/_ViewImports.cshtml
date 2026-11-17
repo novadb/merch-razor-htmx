@@ -3,4 +3,5 @@
 @using Merch.Site
 @using Microsoft.AspNetCore.Html
 @namespace Merch.Pages
-@* No tag helpers: a <form method="post"> stays as written, without an antiforgery field or a handler in its URL. *@
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@inject RegionContext Site

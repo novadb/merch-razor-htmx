@@ -23,14 +23,6 @@ public sealed partial class Media(Delivery delivery, IConfiguration config)
     [GeneratedRegex("^([0-9a-f]{32}|[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\\.[a-z0-9]{1,5}$")]
     public static partial Regex FileName();
 
-    /// <summary>The <c>file</c> of <c>/media/{md5}/original{ext}</c>.</summary>
-    [GeneratedRegex(@"^original(?<ext>\.[a-z0-9]{1,5})$")]
-    public static partial Regex OriginalFile();
-
-    /// <summary>The <c>file</c> of <c>/media/{md5}/{width}{ext}.webp</c>; whether the width is a known one is for the caller.</summary>
-    [GeneratedRegex(@"^(?<width>\d+)(?<ext>\.[a-z0-9]{1,5})\.webp$")]
-    public static partial Regex VariantFile();
-
     sealed record Meta(string ContentType, string ETag);
 
     /// <summary><c>MEDIA_CACHE_DIR</c>, by default a folder of this site in the system's temp directory. Delete it to reset the cache.</summary>

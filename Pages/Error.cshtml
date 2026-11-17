@@ -1,7 +1,7 @@
 @page "/error/{code:int?}"
 @model ErrorModel
 @{
-    var text = Model.Text;
+    var text = Site.Loaded ? Site.Text : null;
     var notFound = Model.IsNotFound && text is not null;
 }
 @section Head {
@@ -20,5 +20,5 @@
     {
         <p class="merchLead">Something went wrong while loading this page.</p>
     }
-    <p class="merchCta"><a href="@(Model.Map?.Home.Url ?? "/")">@(text?["home"] ?? "Home")</a></p>
+    <p class="merchCta"><a href="@(Site.Loaded ? Site.Map.Home.Url : "/")">@(text?["home"] ?? "Home")</a></p>
 </section>

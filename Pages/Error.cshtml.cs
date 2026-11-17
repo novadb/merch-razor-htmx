@@ -1,6 +1,7 @@
 using Merch.Site;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Merch.Pages;
 
@@ -8,15 +9,11 @@ namespace Merch.Pages;
 /// The page for a 404 (re-executed by <c>UseStatusCodePagesWithReExecute</c>) and an error (<c>UseExceptionHandler</c>),
 /// in the region of the URL that failed, else <c>us</c>.
 /// </summary>
-public sealed class ErrorModel(Labels labels, SiteTree tree, ILogger<ErrorModel> logger) : RegionPageModel(labels, tree)
+public sealed class ErrorModel(RegionContext site, ILogger<ErrorModel> logger) : PageModel
 {
     public bool IsNotFound { get; private set; }
 
-    public Task<IActionResult> OnGetAsync(int? code) => ShowAsync(code);
-    /// <summary>A failed POST (a form to an unknown region) is re-executed as a POST.</summary>
-    public Task<IActionResult> OnPostAsync(int? code) => ShowAsync(code);
-
-    async Task<IActionResult> ShowAsync(int? code)
+    public async Task<IActionResult> OnGetAsync(int? code)
     {
         var failedPath = HttpContext.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalPath
             ?? HttpContext.Features.Get<IExceptionHandlerPathFeature>()?.Path ?? "";
@@ -24,7 +21,7 @@ public sealed class ErrorModel(Labels labels, SiteTree tree, ILogger<ErrorModel>
         Response.StatusCode = code ?? StatusCodes.Status500InternalServerError;
         try
         {
-            await LoadRegionAsync(Region.Find(failedPath.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()) ?? Region.Us);
+            await site.LoadAsync(Region.Find(failedPath.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()) ?? Region.Us);
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {

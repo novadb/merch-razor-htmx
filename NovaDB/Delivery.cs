@@ -1,6 +1,8 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Options;
 
 namespace Merch.NovaDB;
 
@@ -21,18 +23,30 @@ public sealed record ListQuery(string Lang, string? Filter = null, string? Sort 
 public sealed record ListResult<TProps>(List<NovaObject<TProps>> Objs, List<NovaObject<JsonElement>> Refs);
 
 /// <summary>
-/// Thin client for NovaDB's Delivery API on the <see cref="HttpClient"/> named "NovaDB" (base address and Basic auth
-/// are set in <c>Program.cs</c>), with a short in-memory cache.
+/// The Delivery login and the branch to read. The site does not start without a login (it is checked at start). It
+/// comes from the environment or <c>dotnet user-secrets</c> and is never logged.
 /// </summary>
-public sealed class Delivery(IHttpClientFactory http, IMemoryCache cache, IConfiguration config)
+public sealed class DeliveryOptions
+{
+    [Required(ErrorMessage = "NOVA_DELIVERY_URL is not set (see README, \"Run\")")] public string? Url { get; set; }
+    [Required(ErrorMessage = "NOVA_DELIVERY_USER is not set (see README, \"Run\")")] public string? User { get; set; }
+    [Required(ErrorMessage = "NOVA_DELIVERY_PASSWORD is not set (see README, \"Run\")")] public string? Password { get; set; }
+    /// <summary>DEMO_BRANCH, not NOVA_BRANCH: shells often export NOVA_BRANCH for other work.</summary>
+    public string Branch { get; set; } = Schema.Branch;
+}
+
+/// <summary>
+/// Thin client for NovaDB's Delivery API on the <see cref="HttpClient"/> named "NovaDB" (base address and Basic auth
+/// are set in <c>Program.cs</c>), with a short cache.
+/// </summary>
+public sealed class Delivery(IHttpClientFactory http, HybridCache cache, IOptions<DeliveryOptions> options)
 {
     public const string HttpClientName = "NovaDB";
-    static readonly TimeSpan Ttl = TimeSpan.FromSeconds(60);
+    static readonly HybridCacheEntryOptions Ttl = new() { Expiration = TimeSpan.FromSeconds(60), LocalCacheExpiration = TimeSpan.FromSeconds(60) };
     /// <summary>The most objects the API returns per request (<c>take</c>).</summary>
     const int PageSize = 1000;
 
-    /// <summary>DEMO_BRANCH, not NOVA_BRANCH: shells often export NOVA_BRANCH for other work.</summary>
-    string Branch => config["DEMO_BRANCH"] is { Length: > 0 } branch ? branch : Schema.Branch;
+    string Branch => options.Value.Branch;
 
     /// <summary>
     /// The objects of a type, read page by page (<c>more</c> says another follows). The pages are read one after the
@@ -62,20 +76,14 @@ public sealed class Delivery(IHttpClientFactory http, IMemoryCache cache, IConfi
 
     sealed record ListPage<TProps>(List<NovaObject<TProps>> Objs, List<NovaObject<JsonElement>>? Refs, bool More);
 
-    /// <summary>Keeps the task, not its result, so concurrent requests for the same URL share one read; a failed or timed-out read leaves the cache.</summary>
-    Task<T> GetJsonAsync<T>(string url) => cache.GetOrCreate(url, entry =>
-    {
-        entry.AbsoluteExpirationRelativeToNow = Ttl;
-        var read = ReadJsonAsync<T>(url);
-        read.ContinueWith(_ => cache.Remove(url), TaskContinuationOptions.NotOnRanToCompletion);
-        return read;
-    })!;
+    /// <summary>Concurrent requests for the same URL share one read; a failed read is not cached.</summary>
+    ValueTask<T> GetJsonAsync<T>(string url) => cache.GetOrCreateAsync(url, token => ReadJsonAsync<T>(url, token), Ttl);
 
-    async Task<T> ReadJsonAsync<T>(string url)
+    async ValueTask<T> ReadJsonAsync<T>(string url, CancellationToken token)
     {
-        using var response = await http.CreateClient(HttpClientName).GetAsync(url);
+        using var response = await http.CreateClient(HttpClientName).GetAsync(url, token);
         // `url` is relative to NOVA_DELIVERY_URL: the host stays out of the log.
-        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Delivery {(int)response.StatusCode} for {url}: {await response.Content.ReadAsStringAsync()}");
-        return await response.Content.ReadFromJsonAsync<T>() ?? throw new InvalidDataException($"Delivery sent no JSON for {url}");
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Delivery {(int)response.StatusCode} for {url}: {await response.Content.ReadAsStringAsync(token)}");
+        return await response.Content.ReadFromJsonAsync<T>(token) ?? throw new InvalidDataException($"Delivery sent no JSON for {url}");
     }
 }

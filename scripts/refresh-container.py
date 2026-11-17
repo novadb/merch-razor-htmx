@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Brings the local container of this demo (http://localhost:4012) up to date.
+"""Brings the local container of this demo (http://localhost:4005) up to date.
 
 Usage (from this folder):
   uv run scripts/refresh-container.py          # fast, ~10 s: publish on the host, copy out/ into the running container, restart it
@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "merch-razor-htmx"
 IMAGE = f"localhost/{NAME}:latest"
-PORT = 4012
+PORT = 4005
 # The port inside the container (the Dockerfile's PORT, as in production)
 CONTAINER_PORT = 3000
 CHECK_URL = f"http://127.0.0.1:{PORT}/de/"

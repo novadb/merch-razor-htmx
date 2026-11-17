@@ -1,28 +1,29 @@
 @* Class names and HTML are the same in every demo (the test suite selects .product-card__*): change them only together. *@
-@* Id is set in the range only: htmx's morph matches cards by ID, so a card that stays keeps its element and its loaded picture. *@
+@* A card in a range has an id (`ViewData["CardIds"]`, set by the range): htmx's morph matches cards by it, so a card that stays keeps its element and its loaded picture. Elsewhere a product may stand twice on a page, which an id would not allow. *@
 @* The picture is not lazy: a card that comes back after a filter is a new element, and a lazy picture is not complete until the browser has looked at it, so it would show late. *@
-@model (Product Product, ContentContext Ctx, string? Id)
+@model Product
 @{
-    var (p, ctx, id) = Model;
-    var details = p.Colors.Select(ctx.Text.Value).Concat(new[]
+    var text = Site.Text;
+    var details = Model.Colors.Select(text.Value).Concat(new[]
     {
-        p.Volume is { } volume ? $"{volume} ml" : null,
-        p.ScreenSize is { } inches ? $"{inches}″" : null,
+        Model.Volume is { } volume ? $"{volume} ml" : null,
+        Model.ScreenSize is { } inches ? $"{inches}″" : null,
     })
-    .Concat(p.Materials.Select(ctx.Text.Value)).Concat(p.Finishes.Select(ctx.Text.Value))
-    .Append(p.Pieces > 1 ? ctx.Text.PieceCount(p.Pieces.Value) : null)
+    .Concat(Model.Materials.Select(text.Value)).Concat(Model.Finishes.Select(text.Value))
+    .Append(Model.Pieces > 1 ? text.PieceCount(Model.Pieces.Value) : null)
     .OfType<string>();
+    var inRange = ViewData.ContainsKey("CardIds");
 }
-<article class="product-card" id="@id">
-    <a href="@p.Url" class="product-card__link">
+<article class="product-card" id="@(inRange ? $"card-{Model.Id}" : null)">
+    <a href="@Model.Url" class="product-card__link">
         <div class="product-card__media">
-            @if (p.Image is { } src)
+            @if (Model.Image is { } src)
             {
-                <img src="@src" srcset="@Images.SrcSet(src)" sizes="(min-width: 700px) 320px, 100vw" alt="@p.Name" width="400" height="400" />
+                <img src="@src" srcset="@Images.SrcSet(src)" sizes="(min-width: 700px) 320px, 100vw" alt="@Model.Name" width="400" height="400" />
             }
         </div>
-        <h3 class="product-card__name">@p.Name</h3>
+        <h3 class="product-card__name">@Model.Name</h3>
         <p class="product-card__meta">@string.Join(" · ", details)</p>
-        <p class="product-card__price">@ctx.Region.FormatPrice(p.Price)@if (p.InStock == false) {<span class="badge badge--muted">@ctx.Text["soldOut"]</span>}</p>
+        <p class="product-card__price">@Site.Region.FormatPrice(Model.Price)@if (Model.InStock == false) {<span class="badge badge--muted">@text["soldOut"]</span>}</p>
     </a>
 </article>

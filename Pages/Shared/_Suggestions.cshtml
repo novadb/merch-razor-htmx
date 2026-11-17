@@ -1,0 +1,29 @@
+@* The typeahead's list: up to 5 products, then up to 3 pages, then "search all". Empty and hidden until two characters are typed. *@
+@model SuggestView
+@{
+    var (listId, query, products, pages) = Model;
+    var text = Site.Text;
+    var n = 0;
+}
+<ul id="@listId" class="suggest" role="listbox" hidden="@(query is null)">
+    @if (query is not null)
+    {
+        if (products.Count > 0)
+        {
+            <li class="suggest__heading" role="presentation">@text["products"]</li>
+        }
+        foreach (var p in products)
+        {
+            <li id="@($"{listId}-{n++}")" class="suggest__option" role="option" data-href="@p.Url">@if (p.Image is { } image) {<img src="@Images.SmallSrc(image)" alt="" width="40" height="40" />}<span class="suggest__name">@p.Name</span><span class="suggest__price">@Site.Region.FormatPrice(p.Price)</span></li>
+        }
+        if (pages.Count > 0)
+        {
+            <li class="suggest__heading" role="presentation">@text["pagesFound"]</li>
+        }
+        foreach (var found in pages)
+        {
+            <li id="@($"{listId}-{n++}")" class="suggest__option" role="option" data-href="@found.Url"><span class="suggest__name">@found.Title</span></li>
+        }
+        <li id="@($"{listId}-{n}")" class="suggest__option" role="option"><span class="suggest__name suggest__all">@text["searchAll"] “@query”</span></li>
+    }
+</ul>

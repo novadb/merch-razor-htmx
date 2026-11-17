@@ -10,16 +10,23 @@ The same shop in other stacks: React Router ([live](https://react-router.merch.n
 ([live](https://astro.merch.novadb.com/), [source](https://github.com/novadb/merch-astro))
 
 The demo site of NovaDB as CMS and PIM in one, built with ASP.NET Core 10 Razor Pages (pages and partials, `.cshtml`
-only) and htmx instead of a script of its own: server-rendered, no Blazor runtime, no client framework. Every page, product, price,
+only) and htmx: server-rendered, HTML over the wire, no Blazor runtime, no client framework. Every page, product, price,
 picture and UI text is read live from NovaDB's Delivery API (branch `merchDemo`) with a plain `HttpClient`; there is
 no NovaDB package in between.
 
-Everything works without JavaScript: filters, sorting and search are POST forms answered with the page. htmx 4
-(`wwwroot/htmx.min.js`, attributes `hx-*` in the HTML) sends the same POSTs in the background and puts the answer in
-place: the range is morphed (cards, focus and scroll position stay), more cards come while scrolling, and the typeahead
-gets its list as HTML from `POST /api/suggest`. The only script of the site is `wwwroot/shop.js`: Shopify's own Buy
-Button and cart in the site's colours. A few lines in `hx-on:*` attributes handle what htmx does not: the keys of the
-typeahead's combobox, `aria-busy` while the range loads, and showing the range from its start when it shrank.
+## What this demo shows, and what it does not
+
+It shows **hypermedia**: the server sends HTML and decides what the browser swaps, htmx puts it in place, and the state
+of a filtered view is the address. It does not use Blazor, a client component framework or JSON to the browser: a page
+handler picks the fragment (`_Range`, `_MoreCards`, `_Suggestions`) and answers it as a Razor partial.
+
+Everything works without JavaScript: filters, sorting, "Show more" and search are GET forms, their fields are the
+address (a filtered view can be shared, Back returns to the one before). htmx 4 (`wwwroot/htmx.min.js`, attributes
+`hx-*` in the HTML) sends the same GET in the background; the page answers with the part it is asked for and htmx puts it
+in place: the range is morphed (cards, focus and scroll position stay), "Show more" appends the next 12 cards while
+scrolling, and the typeahead's list comes from the search page (`?handler=suggest`). The server sends HTML only, never
+JSON. Two small scripts: `wwwroot/ui.js` for what htmx has no attribute for (the keys of the typeahead's combobox, focus
+and scroll position after a swap) and `wwwroot/shop.js` for Shopify's own Buy Button and cart in the site's colours.
 
 ## Run
 
@@ -34,14 +41,14 @@ for the other two). Without them the site does not start. Optional: `DEMO_BRANCH
 (public origin for the absolute canonical and hreflang URLs; default: the ingress's `X-Forwarded-*` headers, which a
 client can forge, so set it in production), `PORT`, `MEDIA_CACHE_DIR`.
 
-Container: `uv run scripts/refresh-container.py --full` builds the `Dockerfile` and runs it at http://localhost:4012
+Container: `uv run scripts/refresh-container.py --full` builds the `Dockerfile` and runs it at http://localhost:4005
 with the variables from the environment or `.env` (see `.env.example`).
 
 ## Test
 
 The site passes the shared Playwright behaviour suite of the Nova Merchandising demos (not part of this repository, one
 project per demo), which checks the deviations below as this demo's own variant: run it from its folder with
-`BASE_URL=http://localhost:4012 npx playwright test --project razor-htmx`. The tests tagged `@shopify` (buy button, cart)
+`BASE_URL=http://localhost:4005 npx playwright test --project razor-htmx`. The tests tagged `@shopify` (buy button, cart)
 need the Shopify variables.
 
 ## Where things are
@@ -50,42 +57,40 @@ need the Shopify variables.
 |---|---|
 | `NOVADB.md` | how the site reads NovaDB: the model, the Delivery API's concepts, what the site decided |
 | `NovaDB/Schema.cs` | every NovaDB name (branch, types, attributes, market variants) as API identifiers, and the `props` records: the one place to change |
-| `NovaDB/Delivery.cs` | Delivery API client on `HttpClient` (Basic auth set in `Program.cs`): paging, 60 s cache |
-| `Site/Regions.cs`, `Site/Labels.cs` | regions (`de`, `uk`, `us`: content language, market, currency) and the UI texts, read from NovaDB's labels |
+| `NovaDB/Delivery.cs` | Delivery API client on `HttpClient` (login and branch as options, checked at start): paging, 60 s `HybridCache` |
+| `Site/Regions.cs`, `Site/Labels.cs` | regions (`de`, `uk`, `us`: content language, market, currency; the `{region:region}` route constraint) and the UI texts, read from NovaDB's labels |
 | `Site/SiteTree.cs` | page tree, URLs from `merchPageUrlSegment` + parent page, breadcrumb, category page of a group |
 | `Site/Catalog.cs` | the product and article types, full-text filter, facets (counted on the server), sorting; reading released products with their articles, claims and set rows |
 | `Site/Images.cs`, `Site/Media.cs` | picture URLs by content address; the `/media` proxy with disk cache and scaled WebP variants (SkiaSharp) |
 | `Site/Seo.cs` | canonical and hreflang URLs, description and robots hint |
 | `Program.cs` | services, middleware, `/` → region by `Accept-Language`, `/media/…` |
+| `Pages/RegionContext.cs` | the region of a request with its texts and page tree, filled before every page's handler; `Request.IsHtmx()` |
 | `Pages/Show.cshtml` | `/{region}/…`: a page (content + live range) or a product |
-| `Pages/Search.cshtml`, `Pages/Error.cshtml` | search page; 404 and error page |
-| `Pages/Suggest.cshtml` | `POST /api/suggest`: the typeahead's list as HTML, without layout |
-| `Pages/RegionPageModel.cs` | base of every page: the region, its texts, the page tree and the posted form |
-| `Pages/ContentContext.cs` | what a document is rendered with: the IDs it refers to (objects, links, images) and the link rewriting |
+| `Pages/Search.cshtml` | search page; its handlers `more` ("Show more") and `suggest` (the typeahead's list) |
+| `Pages/Error.cshtml` | 404 and error page |
+| `Pages/ContentContext.cs`, `Pages/Views.cs` | what a document is rendered with (the IDs it refers to, link rewriting); the records the partials take |
 | `Pages/Shared/_Layout.cshtml` | document shell, header, region switch, footer |
 | `Pages/Shared/_Content.cshtml` | Visual Document renderer and page teaser |
-| `Pages/Shared/_Range.cshtml` | the live range with its facets, and its htmx attributes |
+| `Pages/Shared/_ProductPage.cshtml` | a product's page |
+| `Pages/Shared/_Range.cshtml`, `_ShowMore.cshtml`, `_MoreCards.cshtml` | the live range with its facets and its htmx attributes; the button for the next batch; the next batch as htmx appends it |
 | `Pages/Shared/_ProductCard.cshtml`, `_Crumbs.cshtml` | product card; breadcrumb |
-| `Pages/Shared/_SearchBox.cshtml` | search form with the typeahead (its keys in `hx-on:*`) |
-| `wwwroot/` | `site.css`, fonts, icons, `robots.txt`: the same files in every demo; `htmx.min.js` (4.0.0, its licence beside it); `shop.js`; `MapStaticAssets` serves CSS and JS under a fingerprinted name |
+| `Pages/Shared/_SearchBox.cshtml`, `_Suggestions.cshtml` | search form with the typeahead; the typeahead's list |
+| `wwwroot/` | `site.css`, fonts, icons, `robots.txt`: the same files in every demo; `htmx.min.js` (4.0.0, its licence beside it); `ui.js`; `shop.js`; `MapStaticAssets` serves CSS and JS under a fingerprinted name |
 
 ## Deviations
 
-- No `site.js`: the behaviour it adds in the other demos is htmx here, and `shop.js` is its Shopify part, unchanged.
+- No `site.js`: the behaviour it adds in the other demos is htmx and `wwwroot/ui.js` here, and `wwwroot/shop.js` is its Shopify part.
 - The DOM carries what htmx needs: `hx-*` attributes, `data-htmx-powered` on the elements htmx wired up, an `id`
-  per card in the range (`card-{object ID}`: the morph matches cards by it), and the typeahead's list (`ul.suggest`)
+  per card in a range (`card-{object ID}`: the morph matches cards by it), and the typeahead's list (`ul.suggest`)
   and ARIA attributes are in the HTML from the start instead of being added by a script.
 - A card that left the range (filtered out) and comes back is a new element; its picture comes from the browser cache.
   `site.js` keeps every card it has seen for that, which takes more script than this demo wants. The suite's test "a
   facet or sort change replaces the range in place" does not judge it.
-- "Show more" is htmx's own request: after a keyboard click the focus is lost with the replaced button instead of moving
-  to the first new card.
 - The pictures of the cards are not lazy (`loading="lazy"` is missing): a card that comes back after a filter is a new
   element, and a lazy picture counts as loaded only after the browser has looked at it, so it could show late, which the
   suite checks (it expects exactly this here). A range shows 12 cards at a time, so loading them at once costs little.
 - Reset replaces the range instead of morphing it: a morph keeps what the visitor ticked.
-- `POST /api/suggest` answers HTML (the typeahead's list, with the extra field `list` as its ID), never JSON: the
-  browser gets nothing but HTML from this site. The suite reads the options of that list where it reads the JSON in the
-  other demos; the `/media` routes are checked as in every demo.
+- The forms are GET forms: a filtered view has an address of its own, and the typeahead's list is the HTML of
+  `/{region}/search?handler=suggest` (the suite reads its options where it reads the JSON in other demos).
 - Scaled pictures (`/media/{md5}/{width}{ext}.webp`) are made with SkiaSharp: their bytes differ slightly from other demos' (resampling at
   high-contrast edges), and an animated GIF or WebP is scaled to its first frame.

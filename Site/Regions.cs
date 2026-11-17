@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.AspNetCore.Routing;
 
 namespace Merch.Site;
 
@@ -36,4 +37,11 @@ public sealed record Region(string Code, string Culture, string HtmlLang, Market
             if ((r.Culture == Culture ? own : other) is { } path) result[r] = $"/{r.Code}/{path}";
         return result;
     }
+}
+
+/// <summary>The route constraint <c>{region:region}</c>: the segment names one of the regions, so any other (<c>/en/</c>) matches no page and is a 404.</summary>
+public sealed class RegionConstraint : IRouteConstraint
+{
+    public bool Match(HttpContext? httpContext, IRouter? route, string routeKey, RouteValueDictionary values, RouteDirection routeDirection) =>
+        Region.Find(values[routeKey] as string) is not null;
 }

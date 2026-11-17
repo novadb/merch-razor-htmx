@@ -1,0 +1,21 @@
+@*
+    The button after the grid, while more cards remain. Without JavaScript it submits the filters with one batch more.
+    htmx asks for the next batch by itself when the button comes near the window (or on a click), appends the cards to the
+    grid, and the answer replaces the button: `_MoreCards` sends it again with `hx-swap-oob`, so the new one counts on from there.
+*@
+@model RangeView
+@{
+    var (items, _, selection, _) = Model.Range;
+    var more = selection.Shown + Catalog.RangeBatch;
+    var oob = ViewData.ContainsKey("Oob");
+}
+@if (items.Count > selection.Shown)
+{
+    <button type="submit" form="facets" name="shown" value="@more" class="button button--ghost range__more"
+            hx-get="@Context.Request.Path" hx-vals='{"handler":"more","shown":@more}' hx-include="#facets" hx-trigger="click, intersect rootMargin:600px"
+            hx-target=".grid" hx-swap="beforeend" hx-swap-oob="@(oob ? "outerHTML:.range__more" : null)">@Site.Text["showMore"]</button>
+}
+else if (oob)
+{
+    <template hx-swap-oob="delete:.range__more"></template>
+}

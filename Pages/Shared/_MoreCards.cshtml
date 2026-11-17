@@ -1,0 +1,12 @@
+@* The answer to "Show more" (htmx): the next batch of cards, which htmx appends to the grid, and the button for the one after (`_ShowMore`). *@
+@model RangeView
+@{
+    var (items, _, selection, _) = Model.Range;
+    ViewData["CardIds"] = true; // as in the range (_ProductCard)
+    ViewData["Oob"] = true;
+}
+@foreach (var p in items.Skip(selection.Shown - Catalog.RangeBatch).Take(Catalog.RangeBatch))
+{
+    <partial name="_ProductCard" model="p" />
+}
+<partial name="_ShowMore" model="Model" />

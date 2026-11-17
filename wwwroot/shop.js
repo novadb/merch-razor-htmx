@@ -1,8 +1,8 @@
-// Nova Merchandising — the only script of this demo besides htmx: Shopify's Buy Button and cart. The rest of the
-// behaviour (filters in place, more cards while scrolling, typeahead) is htmx, declared in the HTML (hx-* attributes).
-// Taken unchanged from the site.js the other demos share.
+// Nova Merchandising — Shopify's Buy Button and cart. The rest of the behaviour (filters in place, more cards while
+// scrolling, typeahead) is htmx, declared in the HTML (hx-* attributes), and ui.js. The texts the SDK shows come from
+// the page as data attributes of <body> (they are NovaDB labels in the region's language).
 
-const text = JSON.parse(document.body.dataset.text || "{}");
+const { addToCart, cart, subtotal, checkout, cartEmpty, cartNotice } = document.body.dataset;
 
 // ---- Shopify Buy Button: product buttons and Shopify's own cart ------------------------------------
 // The cart (a floating toggle and a drawer) is Shopify's, configured in the shop where possible: product titles
@@ -40,7 +40,7 @@ async function startShopify() {
   await ui.createComponent("cart", {
     moneyFormat,
     options: {
-      cart: { startOpen: false, text: { title: text.cart, total: text.subtotal, button: text.checkout, empty: text.cartEmpty, notice: text.cartNotice }, styles: { cart: panel, header: panel, footer: panel, ...inks("title", "close", "subtotalText", "subtotal", "notice", "empty"), button } },
+      cart: { startOpen: false, text: { title: cart, total: subtotal, button: checkout, empty: cartEmpty, notice: cartNotice }, styles: { cart: panel, header: panel, footer: panel, ...inks("title", "close", "subtotalText", "subtotal", "notice", "empty"), button } },
       lineItem: { styles: { lineItem: { "border-color": line }, ...inks("itemTitle", "variantTitle", "price", "fullPrice"), quantityInput: control, quantityButton: control } },
       toggle: { styles: { toggle: button, iconPath: { fill: accentInk }, count: { color: accentInk } } },
     },
@@ -53,7 +53,7 @@ async function startShopify() {
       options: {
         product: {
           contents: { img: false, imgWithCarousel: false, title: false, variantTitle: false, price: false, description: false, quantity: false, buttonWithQuantity: false },
-          text: { button: text.addToCart },
+          text: { button: addToCart },
           styles: { product: { "max-width": "none", "margin": "0", "text-align": "left" }, button: { ...button, padding: "14px 28px" } },
         },
       },

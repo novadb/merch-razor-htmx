@@ -1,22 +1,23 @@
 @*
-    A live product range: facet filters as a POST form (the URL stays the page's), sorting and the product grid.
-    Without JavaScript the form posts and the browser shows the answer. With htmx the same POST goes to the same URL in
-    the background, `#range` is taken from the answer and morphed into the page: cards, focus and scroll position stay
-    where they are. The morph removes `aria-busy` again: the answer does not carry it.
+    A live product range: facet filters as a GET form (its fields are the address's query string), sorting and the product grid.
+    Without JavaScript the form submits and the browser shows the answer. With htmx the same GET goes out in the background,
+    the page answers with `#range` alone, it is morphed into the page and the address follows: cards, focus and scroll
+    position stay where they are. The morph removes `aria-busy` again: the answer does not carry it.
 *@
-@model (ProductRange Range, ContentContext Ctx, IReadOnlyDictionary<int, string> GroupNames, string? Query)
+@model RangeView
 @{
-    var (range, ctx, groupNames, query) = Model;
-    var (items, facets, selection, defaultSort) = range;
-    var text = ctx.Text;
+    var (range, groupNames, query) = Model;
+    var (items, facets, selection, _) = range;
+    var text = Site.Text;
     var action = Context.Request.Path;
     var sortLabel = new Dictionary<string, string>
     {
         ["relevance"] = text["sortRelevance"], ["name"] = text["sortName"], ["price-asc"] = text["sortPriceAsc"], ["price-desc"] = text["sortPriceDesc"],
     };
     // "relevance" is offered only where it is the default: a search with usable terms.
-    var sorts = Catalog.Sorts.Where(s => s != "relevance" || defaultSort == "relevance");
-    var currentSort = selection.Sort ?? defaultSort;
+    var sorts = Catalog.Sorts.Where(s => s != "relevance" || range.DefaultSort == "relevance");
+    var currentSort = selection.Sort ?? range.DefaultSort;
+    ViewData["CardIds"] = true; // the cards of a range are told apart by ID (_ProductCard)
 
     void FacetGroup(string legend, string name, IEnumerable<FacetValue> values, Func<string, string> labelOf, Func<string, string?>? swatchOf = null)
     {
@@ -35,19 +36,15 @@
 @functions {
     // htmx 4 on the section below: `:inherited` passes an attribute on to the elements inside (otherwise it applies to
     // its own element only), `outerMorph` swaps by morphing (focus, scroll and what is ticked stay), and
-    // `hx-on::before:request` is the event `htmx:before:request`. `this.scrolled` carries the scroll position from the
-    // start of the swap to its end, where ShowStart compares it with the position afterwards.
+    // `hx-on::before:request` is the event `htmx:before:request`.
     // The form's trigger `from:#range` also catches the sort <select>, which stands outside the form (`form="facets"`)
     // but inside the range; number inputs are left out, so a price applies on Enter or "Apply", not per keystroke.
-    // The scroll position stays. Only when it cannot (the page got shorter than it) or shows no result any more (the
-    // range ends above the window) the range is shown from its start, below the sticky header (its scroll-margin-top).
-    const string ShowStart = "if (Math.abs(scrollY - this.scrolled) > 1 || this.lastElementChild.getBoundingClientRect().bottom < parseFloat(getComputedStyle(this).scrollMarginTop)) this.scrollIntoView({ behavior: 'instant' })";
+    // `hx-push-url` puts the form's fields in the address: a filtered view can be shared, and Back returns to the one before.
 }
 <section class="range" id="range" aria-label="@text["filter"]"
-         hx-select:inherited="#range" hx-target:inherited="#range" hx-swap:inherited="outerMorph"
-         hx-on::before:request="this.ariaBusy = true" hx-on::before:swap="this.scrolled = scrollY" hx-on::after:swap="@ShowStart">
-    <form class="facets" id="facets" method="post" action="#range"
-          hx-post="@action" hx-trigger="submit, change[target.type !== 'number'] from:#range">
+         hx-target:inherited="#range" hx-swap:inherited="outerMorph" hx-on::before:request="this.ariaBusy = true">
+    <form class="facets" id="facets" method="get" action="#range"
+          hx-get="@action" hx-push-url="true" hx-trigger="submit, change[target.type !== 'number'] from:#range">
         @if (query is { Length: > 0 })
         {
             <input type="hidden" name="q" value="@query" />
@@ -69,8 +66,9 @@
         </fieldset>
         <div class="facets__actions">
             <button type="submit" class="button">@text["apply"]</button>
-            @* A morph keeps what the visitor ticked: the reset replaces the range instead. *@
-            <button type="submit" name="reset" value="1" class="button button--ghost" hx-post="@action" hx-vals="reset:1" hx-swap="outerHTML">@text["reset"]</button>
+            @* A morph keeps what the visitor ticked: the reset replaces the range instead, and carries only the search query. *@
+            <button type="submit" name="reset" value="1" class="button button--ghost"
+                    hx-get="@action" hx-push-url="true" hx-vals='{"reset":1}' hx-include="@(query is { Length: > 0 } ? "#facets [name=q]" : null)" hx-swap="outerHTML">@text["reset"]</button>
         </div>
     </form>
     <div class="range__main">
@@ -91,7 +89,7 @@
             <div class="grid">
                 @foreach (var p in items.Take(selection.Shown))
                 {
-                    @await Html.PartialAsync("_ProductCard", (p, ctx, (string?)$"card-{p.Id}"))
+                    <partial name="_ProductCard" model="p" />
                 }
             </div>
         }
@@ -99,12 +97,6 @@
         {
             <p class="range__empty">@text["noResults"]</p>
         }
-        @* Posts the filters again with one batch more. A click submits the form; htmx also sends it by itself when the button comes near the window. *@
-        @if (items.Count > selection.Shown)
-        {
-            var more = selection.Shown + Catalog.RangeBatch;
-            <button type="submit" form="facets" name="shown" value="@more" class="button button--ghost range__more"
-                    hx-post="@action" hx-trigger="intersect rootMargin:600px" hx-vals="shown:@more">@text["showMore"]</button>
-        }
+        <partial name="_ShowMore" model="Model" />
     </div>
 </section>

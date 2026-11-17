@@ -1,8 +1,7 @@
-@page "/{region}/search"
+@page "/{region:region}/search"
 @model SearchModel
 @{
-    var text = Model.Text!;
-    var ctx = new ContentContext(Model.Region, text);
+    var text = Site.Text;
 }
 @section Head {
     @* No canonical or hreflang: internal search results are not meant to be indexed. *@
@@ -11,7 +10,7 @@
 <section class="merchHero merchHero--compact">
     <p class="merchKicker">@text["search"]</p>
     <h1 class="merchDisplay">@text.SearchTitle(Model.Query)</h1>
-    @await Html.PartialAsync("_SearchBox", (Model.Region, text, "suggest-2", true, (string?)Model.Query))
+    <partial name="_SearchBox" model='new SearchBoxView("suggest-2", true, Model.Query)' />
     @if (Model.Pages.Count > 0)
     {
         <nav class="search-pages" aria-label="@text["pagesFound"]">
@@ -23,4 +22,4 @@
         </nav>
     }
 </section>
-@await Html.PartialAsync("_Range", (Model.Range, ctx, (IReadOnlyDictionary<int, string>)Model.GroupNames, (string?)Model.Query))
+<partial name="_Range" model="Model.Range" />

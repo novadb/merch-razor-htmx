@@ -1,9 +1,15 @@
-@* Renders a Visual Document (the page content) and the teasers it embeds; AfterFirst (the live range) goes right after its first component, the hero. *@
+@* Renders a Visual Document (the page content) and the teasers it embeds; the live range goes right after its first component, the hero. *@
 @using Microsoft.AspNetCore.Mvc.Rendering
-@model (VNode? Node, ContentContext Ctx, IHtmlContent? AfterFirst)
+@model ContentContext
 @{
-    var (root, ctx, afterFirst) = Model;
+    var ctx = Model;
+    var root = ctx.Document;
     var firstImage = ctx.FirstImage(root);
+
+    async Task RenderRange()
+    {
+        if (ctx.Range is { } range) { @await Html.PartialAsync("_Range", range) }
+    }
 
     // The element a node names, with its class: the CMS decides both (`div`, `section`, `h2`, …).
     TagBuilder Tag(VNode node)
@@ -45,7 +51,7 @@
                 // editor's stylesheet (built from site.css) then matches the same DOM as the site.
                 if (node.ObjectId is { } id && ctx.Products.GetValueOrDefault(id) is { } product)
                 {
-                    <text>@tag.RenderStartTag()@await Html.PartialAsync("_ProductCard", (product, ctx, (string?)null))@tag.RenderEndTag()</text>
+                    <text>@tag.RenderStartTag()@await Html.PartialAsync("_ProductCard", product)@tag.RenderEndTag()</text>
                 }
                 else if (node.ObjectId is { } targetId && ctx.Targets.GetValueOrDefault(targetId) is { } target)
                 {
@@ -61,7 +67,7 @@
 }
 @if (root is null)
 {
-    @afterFirst
+    await RenderRange();
 }
 else
 {
@@ -72,8 +78,8 @@ else
     for (var i = 0; i < children.Count; i++)
     {
         await Render(children[i]);
-        if (i == 0) { @afterFirst }
+        if (i == 0) { await RenderRange(); }
     }
-    if (children.Count == 0) { @afterFirst }
+    if (children.Count == 0) { await RenderRange(); }
     @tag.RenderEndTag()
 }

@@ -133,20 +133,21 @@ public sealed partial class Catalog(Delivery delivery)
     const int MaxShown = 100_000;
 
     /// <summary>
-    /// The filters and sorting of a posted range form; the form's "reset" button clears them all. Only the "Show more"
-    /// button posts <c>shown</c>, so any other change starts again with the first batch.
+    /// The filters and sorting in the fields of the range form (the query string of the address); the form's "reset" button
+    /// clears them all. Only the "Show more" button sends <c>shown</c>, so any other change starts again with the first batch.
+    /// A value that is no number, a facet value that is no ID or an unknown sort is dropped, not an error: the address is anyone's to edit.
     /// </summary>
-    public static Selection ParseSelection(IFormCollection posted)
+    public static Selection ParseSelection(IQueryCollection fields)
     {
-        var form = posted.ContainsKey("reset") ? FormCollection.Empty : posted;
-        decimal? Num(string key) => decimal.TryParse(form[key], NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : null;
-        // A facet value is an object ID; anything else posted is dropped (the views parse every value). The strings stay the checkboxes' values.
-        string[] Ids(string key) => [.. form[key].Where(v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out _)).OfType<string>()];
-        var sort = form["sort"].ToString();
+        var query = fields.ContainsKey("reset") ? QueryCollection.Empty : fields;
+        decimal? Num(string key) => decimal.TryParse(query[key], NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : null;
+        // A facet value is an object ID; anything else is dropped (the views parse every value). The strings stay the checkboxes' values.
+        string[] Ids(string key) => [.. query[key].Where(v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out _)).OfType<string>()];
+        var sort = query["sort"].ToString();
         return new Selection(
-            [.. form["group"].Select(v => int.TryParse(v, CultureInfo.InvariantCulture, out var id) ? id : (int?)null).OfType<int>()],
+            [.. query["group"].Select(v => int.TryParse(v, CultureInfo.InvariantCulture, out var id) ? id : (int?)null).OfType<int>()],
             Ids("color"), Ids("material"),
-            form["stock"] == "1",
+            query["stock"] == "1",
             Num("min"), Num("max"),
             Sorts.Contains(sort) ? sort : null,
             (int)Math.Max(1, Math.Ceiling(Math.Clamp(Num("shown") ?? 0, 0, MaxShown) / RangeBatch)) * RangeBatch);

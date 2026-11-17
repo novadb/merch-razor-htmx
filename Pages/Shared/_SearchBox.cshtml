@@ -1,44 +1,18 @@
 @*
-    The search form with its typeahead (an ARIA combobox). The search itself is a plain POST to /{region}/search.
-    While typing, htmx posts the field to /api/suggest (Pages/Suggest.cshtml) and puts the list it answers in place of
-    the empty one. Only the keys of the combobox (arrows, Enter, Escape) and a pick with the mouse need a few lines of script.
+    The search form with its typeahead (an ARIA combobox). The search itself is a plain GET of /{region}/search.
+    While typing, htmx asks the search page for its list (`handler=suggest`, Pages/Search.cshtml.cs) and puts it in place
+    of the empty one. The keys of the combobox (arrows, Enter, Escape) and a pick with the mouse are in ui.js.
 *@
-@model (Region Region, Texts Text, string ListId, bool Large, string? Query)
+@model SearchBoxView
 @{
-    var (region, text, listId, large, query) = Model;
+    var (listId, large, query) = Model;
+    var region = Site.Region;
+    var text = Site.Text;
 }
-@functions {
-    // Arrow keys move the highlight through the options (round), Escape closes the list. Enter opens the highlighted
-    // product or page; on "search all" (no address) or with nothing highlighted Enter submits the search as usual.
-    const string Keys = """
-        const list = this.querySelector('.suggest'), input = this.querySelector('input'), options = [...list.querySelectorAll('[role=option]')];
-        const active = options.findIndex(o => o.ariaSelected === 'true');
-        if (list.hidden || !options.length) return;
-        if (event.key === 'Escape') { list.hidden = true; input.ariaExpanded = false; }
-        else if (event.key === 'Enter' && options[active]?.dataset.href) location.href = options[active].dataset.href;
-        else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            const next = options.at((active + (event.key === 'ArrowDown' ? 1 : -1)) % options.length);
-            options.forEach(o => o.ariaSelected = o === next);
-            input.setAttribute('aria-activedescendant', next.id);
-            next.scrollIntoView({ block: 'nearest' });
-        }
-        else return;
-        event.preventDefault();
-        """;
-
-    // A click on an option: the product or page, or "search all", which submits the form. On mousedown, before the field loses focus.
-    const string Pick = """
-        const option = event.target.closest('[role=option]');
-        if (!option) return;
-        event.preventDefault();
-        if (option.dataset.href) location.href = option.dataset.href; else this.requestSubmit();
-        """;
-}
-<form class="@(large ? "search search--large" : "search")" role="search" method="post" action="/@region.Code/search"
-      hx-on:keydown="@Keys" hx-on:mousedown="@Pick" hx-on:focusout="this.querySelector('.suggest').hidden = true">
+<form class="@(large ? "search search--large" : "search")" role="search" method="get" action="/@region.Code/search">
     <input type="search" name="q" value="@query" placeholder="@text["searchPlaceholder"]" aria-label="@text["search"]" autocomplete="off"
            role="combobox" aria-controls="@listId" aria-autocomplete="list" aria-expanded="false"
-           hx-post="/api/suggest" hx-vals="lang:@region.Code, list:@listId" hx-trigger="input changed delay:150ms" hx-target="#@listId" hx-swap="outerHTML"
+           hx-get="/@region.Code/search" hx-vals='{"handler":"suggest","list":"@listId"}' hx-trigger="input changed delay:150ms" hx-target="#@listId" hx-swap="outerHTML"
            hx-on::after:swap="this.ariaExpanded = !document.getElementById('@listId').hidden" />
     <ul id="@listId" class="suggest" role="listbox" hidden></ul>
     @if (large)
