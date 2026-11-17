@@ -5,7 +5,7 @@ namespace Merch.NovaDB;
 /// <summary>
 /// Every NovaDB name the site depends on, in one place. IDs of branches and object types differ from installation to
 /// installation, API identifiers do not, so the code addresses everything by identifier. The site's own identifiers
-/// carry the prefix <c>merch</c> because they must be unique across branches; NovaDB's own (<c>image</c>,
+/// carry the prefix <c>merch</c> because they must be unique across branches; NovaDB's own (<c>typeImage</c>,
 /// <c>typeAttribute</c>, <c>attributeName</c>, the file attributes) do not.
 /// The Delivery API serves an identifier with a lower-case first letter. A numeric ID belongs here too, as a named
 /// constant with a comment, where one is unavoidable (<see cref="WorkflowReleased"/>).
@@ -23,7 +23,7 @@ public static class Schema
         /// <summary>A product's sellable variant (SKU, colour, stock, delivery time).</summary>
         public const string Article = "merchArticle";
         public const string Group = "merchProductGroup";
-        public const string Image = "image";
+        public const string Image = "typeImage";
         public const string Label = "merchLabel";
         public const string Color = "merchColor";
         public const string Material = "merchMaterial";
