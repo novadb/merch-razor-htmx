@@ -75,15 +75,15 @@ public static class Schema
         public const string UrlSegment = "merchProductUrlSegment";
         public const string ShopifyId = "merchProductShopifyId";
         /// <summary>References to <c>merchClaim</c> objects: statements the product may make.</summary>
-        public const string Claims = "merchClaimRefs";
+        public const string Claims = "merchProductClaims";
         /// <summary>References to <c>merchSetItem</c> objects, set only on a set product.</summary>
         public const string SetItems = "merchProductSetItems";
-        public const string Materials = "merchMaterials";
-        public const string Finishes = "merchFinishes";
+        public const string Materials = "merchProductMaterials";
+        public const string Finishes = "merchProductFinishes";
         /// <summary>Volume in cm³ (a cup's, printed as ml), pieces per set, screen size in inches.</summary>
-        public const string Volume = "merchVolume";
-        public const string Pieces = "merchPiecesPerSet";
-        public const string ScreenSize = "merchScreenSize";
+        public const string Volume = "merchProductVolume";
+        public const string Pieces = "merchProductPiecesPerSet";
+        public const string ScreenSize = "merchProductScreenSize";
         public const string SeoTitle = "merchSeoTitle";
         public const string SeoDescription = "merchSeoDescription";
         public const string SeoNoIndex = "merchSeoNoIndex";
@@ -115,8 +115,8 @@ public static class Schema
     public static class SetItem
     {
         /// <summary>Reference to the article the row is made of.</summary>
-        public const string Article = "merchSetItemRef";
-        public const string Quantity = "merchSetItemQty";
+        public const string Article = "merchSetItemArticle";
+        public const string Quantity = "merchSetItemQuantity";
     }
 
     /// <summary>
